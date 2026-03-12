@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="odx_pos_delivery_charge.ControlButtons" t-inherit="point_of_sale.ControlButtons" t-inherit-mode="extension">
+        <xpath expr="//button[hasclass('more-btn')]" position="before">
+            <button
+                t-if="!props.showRemainingButtons and !ui.isSmall"
+                class="btn btn-secondary btn-lg py-5 d-flex justify-content-center align-items-center"
+                t-att-class="buttonClass"
+                t-on-click="() => this.clickDiscount()"
+                title="Discount"
+                aria-label="Discount"
+            >
+                <i class="fa fa-percent" role="img" aria-label="Discount"/>
+            </button>
+            <button
+                t-if="!props.showRemainingButtons and !ui.isSmall"
+                class="btn btn-secondary btn-lg py-5 d-flex justify-content-center align-items-center"
+                t-att-class="buttonClass"
+                t-on-click="() => this.clickDeliveryCharge()"
+                title="Delivery Charge"
+                aria-label="Delivery Charge"
+            >
+                <i class="fa fa-truck" role="img" aria-label="Delivery Charge"/>
+            </button>
+        </xpath>
+        <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[hasclass('o_pricelist_button')]" position="before">
+            <button
+                class="btn btn-secondary btn-lg py-5 d-flex justify-content-center align-items-center"
+                t-att-class="buttonClass"
+                t-on-click="() => this.clickDiscount()"
+                title="Discount"
+                aria-label="Discount"
+            >
+                <i class="fa fa-percent" role="img" aria-label="Discount"/>
+            </button>
+            <button
+                class="btn btn-secondary btn-lg py-5 d-flex justify-content-center align-items-center"
+                t-att-class="buttonClass"
+                t-on-click="() => this.clickDeliveryCharge()"
+                title="Delivery Charge"
+                aria-label="Delivery Charge">
+                <i class="fa fa-truck" role="img" aria-label="Delivery Charge"/>
+            </button>
+        </xpath>
+    </t>
+</templates>

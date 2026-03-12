@@ -1,0 +1,48 @@
+<odoo>
+
+    <template id="report_barcode_in_products_la_beaute">
+        <t t-call="web.html_container">
+            <t t-call="web.internal_layout">
+                <t t-foreach="docs" t-as="o">
+                           <div class="page">
+                        <div class="row" name="barcode">
+                            <table width="100%" style="padding-left:-200px;margin-top:5px;">
+                                <tr>
+                                    <td  class="text-center align-middle" width="30%">
+                                             <strong><span style="font-size:25px;text-center">La Beaute</span></strong>
+
+                                    </td>
+                                    <td  width="40%"></td>
+                                    <td  width="30%"></td>
+                                </tr>
+                                <tr>
+                                    <t t-if="o.barcode">
+                                        <td class="text-center" style="padding:0px;" width="30%">
+                                            <!--<h3>-->
+                                                <!--<img alt="Barcode" t-att-src="'/report/barcode/?type=%s&amp;value=%s&amp;width=%s&amp;height=%s'     % ('Code128', o.barcode,500, 40)" style="padding-left:10px"/><br/>-->
+                                                <div  style="padding-left:-50px;" t-field="o.barcode" t-options="{'widget': 'barcode', 'width': 1200, 'height': 40, 'img_style': 'width:450px;height:30px;'}"/>
+                                                 <span style="font-size:25px" t-field="o.barcode"/>
+                                            <!--</h3>-->
+                                            <!--<br/>-->
+
+
+
+                                        </td>
+                                    </t>
+                                    <td  class="text-left"  style="font-size:30px;padding-left:5px" width="40%"> <span t-field="o.name"/><br/>
+                                     <span style="font-size:25px;" >LPR:</span> <strong><span style="font-size:30px;" t-field="o.list_price"/></strong>
+                                    </td>
+                                    <td></td>
+                                </tr>
+
+                            </table>
+
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+
+</odoo>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <template id="sales_report" inherit_id="sale.report_saleorder_document">
+            <xpath expr="//tr/th[@name='th_description']" position="before">
+                <th name="th_d" class="text-start">No.</th>
+            </xpath>
+            <xpath expr="//table[hasclass('o_main_table')]/tbody/t/tr/t/td[1]" position="before">
+                <td>
+                    <span t-field="line.sale_sequence_number" />
+                </td>
+            </xpath>
+        </template>
+
+        <template id="purchase_report" inherit_id="purchase.report_purchaseorder_document">
+            <xpath expr="//tr/th[@name='th_description']" position="before">
+                <th name="th_d" class="text-start">No.</th>
+            </xpath>
+            <xpath expr="//table[hasclass('o_main_table')]/tbody/t/tr/t/td[1]" position="before">
+                <td>
+                    <span t-field="line.purchase_sequence_number" />
+                </td>
+            </xpath>
+        </template>
+
+        <template id="invoice_report" inherit_id="account.report_invoice_document">
+            <xpath expr="//tr/th[@name='th_description']" position="before">
+                <th name="th_d" class="text-start">No.</th>
+            </xpath>
+            <xpath expr="//table[hasclass('o_main_table')]/tbody/t/tr/t/td[1]" position="before">
+                <td>
+                    <span t-field="line.invoice_sequence_number" />
+                </td>
+            </xpath>
+        </template>
+
+        <template id="stock_report" inherit_id="stock.report_picking">
+            <xpath
+                expr="//table[@class='table table-sm']/thead/tr/th[1]"
+                position="before">
+                <th name="th_d" class="text-start">No.</th>
+            </xpath>
+            <xpath expr="//table[1]/tbody/t/t/tr/td[1]" position="before">
+                <td>
+                    <span t-field="ml.move_id.stock_move_sequence" />
+                </td>
+            </xpath>
+        </template>
+
+<!--        <template id="mrp_report" inherit_id="mrp.report_mrporder">-->
+<!--            <xpath expr="//table[@class='table table-sm']/thead/tr/th[1]" position="before">-->
+<!--                <td>No.</td>-->
+<!--            </xpath>-->
+<!--            <xpath expr="//table[@class='table table-sm']/tbody/t/tr/td[1]" position="before">-->
+<!--                <td>-->
+<!--                    <span t-field="raw_line.mrp_sequence_no" />-->
+<!--                </td>-->
+<!--            </xpath>-->
+<!--        </template>-->
+
+        <template id="purchase_agreement_report"
+            inherit_id="purchase_requisition.report_purchaserequisitions">
+            <xpath expr="//tr/th[1]" position="before">
+                <th name="th_d" class="text-end">No.</th>
+            </xpath>
+            <xpath expr="//table[@class='table table-sm']/tbody/tr/td[1]" position="before">
+                <td>
+                    <span t-field="line_ids.purchase_requistion_sequence" />
+                </td>
+            </xpath>
+        </template>
+
+    </data>
+</odoo>

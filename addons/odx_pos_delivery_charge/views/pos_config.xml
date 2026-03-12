@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+
+    <record id="inherited_pos_config_form" model="ir.ui.view">
+
+        <field name="name">pos.config.form.inherit</field>
+        <field name="model">pos.config</field>
+        <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/div[hasclass('o_settings_container')][1]" position="after">
+                <div class="row mt16 o_settings_container">
+                    <div class="col-12 col-lg-6 o_setting_box" id="disc">
+                        <div class="o_setting_left_pane">
+                            <field name="disc_button"/>
+                        </div>
+                        <div class="o_setting_right_pane">
+                            <label for="disc_button"/>
+                            <div class="text-muted">
+                                Hide amount discount button in POS
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6 o_setting_box" id="price">
+                        <div class="o_setting_left_pane">
+                            <field name="price_button"/>
+                        </div>
+                        <div class="o_setting_right_pane">
+                            <label for="price_button"/>
+                            <div class="text-muted">
+                                Hide price edit button in POS
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6 o_setting_box" id="delivery_charge">
+                        <div class="o_setting_left_pane">
+                            <field name="del_charge"/>
+                        </div>
+                        <div class="o_setting_right_pane">
+                            <label for="del_charge"/>
+                            <div class="text-muted">
+                                Enable delivery charge button in POS
+                            </div>
+                            <div class="content-group" invisible="not del_charge">
+                                <div class="mt16" id="btn_use_del_charge">
+                                    <label string="Charge Product" for="del_charge_pro_id"/>
+                                    <field name="del_charge_pro_id" required="del_charge"/>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+
+
+
+        </field>
+
+    </record>
+
+</odoo>
+

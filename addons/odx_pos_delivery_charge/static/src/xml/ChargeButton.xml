@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="PosChargeButtons" owl="1">
+       <span class="control-button" >
+           <i class="fa fa-dollar"></i>
+           <span> </span>
+           <span>Delivery Charge</span>
+       </span>
+   </t>
+
+</templates>

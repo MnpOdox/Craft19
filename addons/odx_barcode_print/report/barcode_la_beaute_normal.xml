@@ -1,0 +1,44 @@
+<odoo>
+
+    <template id="report_barcode_in_products_labeaute_normal">
+       <t t-call="web.html_container">
+            <t t-call="web.internal_layout">
+                <t t-foreach="docs" t-as="o">
+
+                          <div class="page">
+
+                        <div class="row" name="">
+                            <table width="100%" style="border-collapse: collapse;">
+
+                                <tr>
+                                    <td class="text-center align-middle">
+
+                                      <span style="font-size: 60px;font-weight:900;">La Beaute</span>
+                                        <br/>
+
+
+                                         <!--<img t-if="o.barcode" t-att-src="'/report/barcode/?type=%s&amp;value=%s&amp;width=%s&amp;height=%s' % ('Code128', o.barcode,1400,150)"/><br/>-->
+                                        <img style="width:100%;padding-left:-150px;" t-if="o.barcode" t-att-src="'/report/barcode/?type=%s&amp;value=%s' % ('Code128', o.barcode)"/>
+                                         <span style="font-size: 40px;font-weight:900;" t-field="o.barcode"/>
+
+                                        <br/>
+                                        <span style="font-size: 40px;font-weight:900;" t-field="o.display_name"/>
+                                        <br/>
+
+
+                                       <span style="font-size: 40px;font-weight:900;"> LBP:</span> <span style="font-size: 40px;font-weight:900;" t-field="o.lst_price"/>
+
+                                    </td>
+                                </tr>
+                            </table>
+
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+
+
+
+</odoo>

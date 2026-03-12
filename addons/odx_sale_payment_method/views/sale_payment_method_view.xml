@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="sale_payment_method_form" model="ir.ui.view">
+        <field name="name">sale.payment.method.form</field>
+        <field name="model">sale.payment.method</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="name"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="sale_payment_method_tree" model="ir.ui.view">
+        <field name="name">sale.payment.method.tree</field>
+        <field name="model">sale.payment.method</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_sale_payment_method" model="ir.actions.act_window">
+        <field name="name">Payment Method</field>
+		<field name="res_model">sale.payment.method</field>
+		<field name="view_mode">list,form</field>
+		<field name="help" type="html">
+		    <p class="o_view_nocontent_smiling_face">
+                Create Payment Method
+            </p>
+	    </field>
+    </record>
+
+    <menuitem id="sale_payment_method_view"
+              name="Payment Method"
+              sequence="5"
+		      parent="sale.menu_sale_config"
+              action="action_sale_payment_method" />
+</odoo>

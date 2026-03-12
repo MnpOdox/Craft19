@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+
+    <template id="assets" inherit_id="point_of_sale.assets">
+        <xpath expr="." position="inside">
+            <script type="text/javascript" src="/odx_pos_delivery_charge/static/src/js/config.js"/>
+            <script type="text/javascript" src="/odx_pos_delivery_charge/static/src/js/DiscButton.js"/>
+            <script type="text/javascript" src="/odx_pos_delivery_charge/static/src/js/ChargeButton.js"/>
+            <script type="text/javascript" src="/odx_pos_delivery_charge/static/src/js/models.js"/>
+
+
+
+        </xpath>
+    </template>
+
+</odoo>

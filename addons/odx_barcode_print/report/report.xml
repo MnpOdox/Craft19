@@ -1,0 +1,79 @@
+<odoo>
+    <record id="paperformat_barcode" model="report.paperformat">
+        <field name="name">Product Barcode</field>
+        <field name="default" eval="True"/>
+        <field name="format">custom</field>
+        <field name="page_height">50</field>
+        <field name="page_width">32</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">0.50</field>
+        <field name="margin_bottom">0</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="dpi">300</field>
+    </record>
+    <report
+            id="product_barcode_report"
+            string="Barcode Craft- Normal"
+            model="product.product"
+            report_type="qweb-pdf"
+            name="odx_barcode_print.report_barcode_in_products"
+            file="odx_barcode_print.report_barcode_in_products"
+            print_report_name="'Products barcode - %s' % (object.name)"
+            paperformat="odx_barcode_print.paperformat_barcode"
+    />
+    ################################################################################
+    <record id="paperformat_barcode_la_beaute" model="report.paperformat">
+        <field name="name">Barcode La Beaute</field>
+        <field name="default" eval="True"/>
+        <field name="format">custom</field>
+        <field name="page_height">80</field>
+        <field name="page_width">10</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">0</field>
+        <field name="margin_bottom">0</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="dpi">300</field>
+    </record>
+    <report
+            id="product_barcode_report_la_beaute"
+            string="Barcode La Beaute- Tag"
+            model="product.product"
+            report_type="qweb-pdf"
+            name="odx_barcode_print.report_barcode_in_products_la_beaute"
+            file="odx_barcode_print.report_barcode_in_products_la_beaute"
+            print_report_name="'Products barcode - %s' % (object.name)"
+            paperformat="odx_barcode_print.paperformat_barcode_la_beaute"
+    />
+
+
+    ################################################################################
+   <record id="paperformat_barcode_labeaute_normal" model="report.paperformat">
+        <field name="name">Product Barcode la beaute normal</field>
+        <field name="default" eval="True"/>
+        <field name="format">custom</field>
+        <field name="page_height">50</field>
+        <field name="page_width">32</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">0.50</field>
+        <field name="margin_bottom">0</field>
+        <field name="margin_left">0</field>
+        <field name="margin_right">0</field>
+        <field name="dpi">300</field>
+    </record>
+    <report
+            id="product_barcode_report_labeaute_normal"
+            string="Barcode La Beaute -Normal"
+            model="product.product"
+            report_type="qweb-pdf"
+            name="odx_barcode_print.report_barcode_in_products_labeaute_normal"
+            file="odx_barcode_print.report_barcode_in_products_labeaute_normal"
+            print_report_name="'Products barcode - %s' % (object.name)"
+            paperformat="odx_barcode_print.paperformat_barcode_labeaute_normal"
+    />
+
+
+
+
+</odoo>

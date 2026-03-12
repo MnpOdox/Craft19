@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+
+      <record id="paper_format_custom" model="report.paperformat">
+            <field name="name">Point Of Sale Receipt</field>
+               <field name="default" eval="True"/>
+               <field name="format">custom</field>
+               <field name="page_height">150</field>
+               <field name="page_width">75</field>
+               <field name="orientation">Portrait</field>
+               <field name="margin_top">3</field>
+               <field name="margin_bottom">3</field>
+               <field name="margin_left">3</field>
+               <field name="margin_right">3</field>
+               <field name="header_line" eval="False" />
+               <field name="header_spacing">3</field>
+               <field name="dpi">130</field>
+        </record>
+
+
+        <report
+            id="pos_order_receipt"
+            string="Order Receipt"
+            model="pos.order"
+            report_type="qweb-pdf"
+            name="odx_pos_receipt_custom.pos_order_template"
+            file="odx_pos_receipt_custom.pos_order_template"
+            paperformat="odx_pos_receipt_custom.paper_format_custom"
+         />
+
+
+
+ <template id="pos_order_template">
+                    <t t-foreach="docs" t-as="o">
+                <t t-call="web.html_container" >
+
+                <div class="pos-receipt">
+
+
+                    <div class="pos-receipt-contact text-center" style="text-align: center;" >
+
+
+                             <img t-if="o.company_id.logo" t-att-src="image_data_uri(o.company_id.logo)" alt="Logo" style="max-height: 80px;"/>
+                            <div class="col-9 text-center" name="company_address">
+                                    <h4><strong><span t-esc="o.company_id.name"/></strong></h4>
+                                    <div style="font-size:17px;margin-top:-7px;" t-field="o.company_id.partner_id" t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;], &quot;no_marker&quot;: true}"/>
+                                    <div style="font-size:17px;margin-top:-3px;" >
+	                                    <span t-if="o.company_id.email" t-field="o.company_id.email"/>
+	                            		<span t-if="o.company_id.phone" t-field="o.company_id.phone"/><br/>
+                                        <span t-if="o.company_id.website" t-field="o.company_id.website"/>
+	                            	</div>
+                                </div>
+                                <hr style="border-top:1px dashed black;"/>
+                                <div>served by <t t-esc="o.user_id.name" /></div><br/>
+
+
+
+
+                    </div>
+            </div>
+
+
+
+
+                <div class="page" >
+
+
+
+                    <table style="width:100%;font-size: 20px !important;" >
+                        <thead>
+                            <tr>
+                                <th style="width:70%;"></th>
+                                <th style="width:30%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="o.lines" t-as="line">
+                                <td>
+                                    <span t-field="line.full_product_name"/><br/>
+                                    <span t-field="line.note"/>
+                                </td>
+                                <td>
+                                    <span t-field="line.qty"/>
+                                </td>
+
+                                <td style="text-align:left; padding-right: 10px;">
+                                    <span t-esc="'{0:,.2f}'.format(float(line.price_unit))"/>
+                                </td>
+
+                                <td style="padding-left: 10px;">
+                                    <span t-field="line.price_subtotal_incl"></span>
+                                </td>
+
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td style="text-align:right;">------</td>
+                            </tr>
+
+                            <tr>
+                                <td  style="padding-left:1.5cm;"><b>Total Price</b></td>
+                                <td></td>
+                                <td></td>
+                                <td style="text-align:right;">
+                                    <b>
+<!--                                        <span t-esc="'{0:,.2f}'.format(float(o.amount_total))" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>-->
+                                        <span t-field="o.amount_total" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>
+                                    </b>
+                                </td>
+                            </tr>
+                            <tr t-foreach="o.payment_ids" t-as="line" t-if="line.amount &gt;=0">
+                                <td ><span t-esc="line.payment_method_id.name"  style="padding-left:1.5cm;"/></td>
+                                 <td></td>
+                                 <td></td>
+                                <td  style="text-align:right;">
+                                    <b>
+                                        <span t-esc="'{0:,.2f}'.format(float(line.amount))"/>
+                                    </b>
+                                </td>
+
+                            </tr>
+<!--                            <tr>-->
+<!--                                <td style="padding-left:1.5cm;"><b>Paid Amount</b></td>-->
+<!--                                <td>:-->
+<!--                                    <b>-->
+<!--                                        <span t-esc="'{0:,.2f}'.format(float(o.amount_paid))"/>-->
+<!--                                    </b>-->
+<!--                                </td>-->
+<!--                            </tr>-->
+                            <tr t-foreach="o.payment_ids" t-as="line" t-if="line.amount &lt;=0">
+                                <td style="padding-left:1.5cm;"><b>Change</b></td>
+                                <td style="text-align:right;">
+                                    <b>
+                                        <span t-esc="o.currency_id.symbol"/>
+                                        <span t-esc="'{0:,.2f}'.format(float(line.amount))"/>
+<!--                                        <span t-field="o.amount" t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: o.currency_id}"/>-->
+                                    </b>
+                                </td>
+
+                            </tr>
+                        </tbody>
+                    </table>
+                    <br/>
+                    <br/>
+
+                <div style="text-align: center;">
+                    <h5>Thank You Visit Again</h5>
+
+                </div>
+                <div class="pos-receipt-order-data" style="text-align: center;">
+
+                    <div><t t-esc="o.name" /></div>
+                    <div><t t-esc="o.date_order" /></div>
+                </div>
+                </div>
+                </t>
+                </t>
+
+
+
+        </template>
+</odoo>
+
+
+
+
+

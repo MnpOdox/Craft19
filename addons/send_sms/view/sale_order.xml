@@ -1,0 +1,12 @@
+<odoo>
+<record id="sale_order_inherit_send_sms" model="ir.ui.view">
+        <field name="name">sale.order.send.sms</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+             <xpath expr="//button[@name='action_quotation_send']" position="after">
+            <button name="send_sms" type="object" string="Send SMS"/>
+             </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <data>
+
+        <!-- Inherit POS Order Form View to Modify it -->
+        <record id="pos_inherit_form_view" model="ir.ui.view">
+            <field name="name">pos.packing</field>
+            <field name="model">pos.order</field>
+            <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
+            <field name="arch" type="xml">
+                <xpath expr="//group[@name='order_fields']" position="after">
+                    <sheet>
+                        <group string="">
+                            <group>
+                                <field name="courier_id"/>
+                                <field name="tracking_number"/>
+                            </group>
+                            <group>
+                                <field name="order_status"/>
+                                <field name="online_order"/>
+                            </group>
+                        </group>
+                    </sheet>
+                </xpath>
+                <xpath expr="//group[@name='order_total']" position="after">
+                      <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </xpath>
+            </field>
+        </record>
+
+
+<!--        <record id="multi_order_status_change" model="ir.actions.server">-->
+<!--            <field name="name">Order status change</field>-->
+<!--            <field name="model_id" ref="point_of_sale.model_pos_order"/>-->
+<!--            <field name="binding_model_id" ref="point_of_sale.model_pos_order"/>-->
+<!--            <field name="binding_view_types">list</field>-->
+<!--            <field name="state">code</field>-->
+<!--            <field name="code">action = records.batch_order_status_change()</field>-->
+<!--        </record>-->
+
+
+    </data>
+</odoo>
+
+

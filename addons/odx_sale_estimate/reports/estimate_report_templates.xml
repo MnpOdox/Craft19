@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="report_saleorder">
+        <t t-call="web.html_container">
+            <t t-call="web.external_layout">
+                <t t-foreach="docs" t-as="doc">
+                    <div class="page">
+                        <img t-if="doc.company_id.logo" t-att-src="image_data_uri(doc.company_id.logo)" alt="Logo" style="max-height: 120px;"/><br/>
+                        <h6 style="text-align:center;">
+                            <strong>ESTIMATE</strong>
+                        </h6>
+                        <div style="font-size:15px;">
+
+                            <strong>
+                                <span t-if="doc.company_id.name" t-field="doc.company_id.name"/>
+                            </strong>
+                            <br/>
+                            <span>Ground Floor</span>
+                            <br/>
+                            <span>Room No G49</span>
+                            <br/>
+                            <span>Forza Mall -1</span>
+                            <br/>
+                            <span>Road Chembra , Tirur</span>
+                            <br/>
+                            <span>Kerala - 676101</span>
+                            <br/>
+                            <span t-field="doc.company_id.phone"/>
+                        </div>
+                        <br/>
+                        <div class="row">
+                            <div class="col-6" style="font-size:15px;">
+                                <h6>
+                                    <strong>BILL TO</strong>
+                                </h6>
+                                <div t-field="doc.partner_invoice_id"
+                                     t-options="{&quot;widget&quot;: &quot;contact&quot;, &quot;fields&quot;: [&quot;address&quot;, &quot;name&quot;, &quot;phone&quot;], &quot;no_marker&quot;: True, &quot;phone_icons&quot;: True}"/>
+                            </div>
+                            <div class="col-6" style="right:0;">
+                                <strong>ESTIMATE #</strong>
+                                <span class="text-start" t-field="doc.name"/>
+                                <br/>
+                                <strong>ESTIMATE DATE</strong>
+                                <span class="text-start" t-field="doc.date_order"
+                                      t-options="{&quot;widget&quot;: &quot;date&quot;}"/>
+                                <br/>
+                            </div>
+                        </div>
+                        <t t-set="sl_no" t-value="1"/>
+
+                        <table class="table table-sm o_main_table table-borderless mt-4">
+                            <thead class="border-top border-bottom">
+                                <tr>
+                                    <th name="th_sno" style="text-align:center;">#</th>
+                                    <th name="th_description">DESCRIPTION</th>
+                                    <th name="th_quantity" style="text-align:center;">QTY</th>
+                                    <th name="th_priceunit" style="text-align:center;">UNIT PRICE</th>
+                                    <th name="th_subtotal" class="text-right">AMOUNT</th>
+                                </tr>
+                            </thead>
+                            <tbody class="border-bottom">
+                                <tr t-foreach="doc.order_line" t-as="line">
+                                    <td width="5%" style="text-align:center; padding: 1px 0;">
+                                        <t t-if="not line.product_id.disable_order_line_sequence">
+                                        <span t-field="line.sale_sequence_number"/>
+                                        </t>
+                                    </td>
+                                    <td style="padding: 1px 0;">
+                                        <span t-field="line.name"/>
+                                    </td>
+                                    <td style="padding: 1px 0;text-align:center;">
+                                        <span t-field="line.product_uom_qty"/>
+                                    </td>
+                                    <td style="text-align:center;">
+                                        <span t-field="line.price_unit"/>
+                                    </td>
+                                    <td class="text-right" style="text-align:center;">
+                                        <span t-field="line.price_subtotal"/>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="clearfix" name="so_total_summary">
+                            <div id="total" class="row" name="total">
+                                <div t-attf-class="#{'col-4' if report_type != 'html' else 'col-sm-7 col-md-5'} ml-auto">
+                                    <table class="table table-sm">
+                                        <tr class="border-black o_subtotal" style="">
+                                            <td name="td_amount_untaxed_label">
+                                                <strong>Subtotal</strong>
+                                            </td>
+                                            <td name="td_amount_untaxed" class="text-right">
+                                                <span t-field="doc.amount_untaxed"/>
+                                            </td>
+                                        </tr>
+                                        <t t-foreach="doc.amount_by_group" t-as="amount_by_group">
+                                            <tr style="">
+                                                <t t-if="amount_by_group[5] == 1 and doc.amount_untaxed == amount_by_group[2]">
+                                                    <td name="td_amount_by_group_label_3">
+                                                        <span t-esc="amount_by_group[0]"/>
+                                                        <span>&amp;nbsp;<span>on</span>&amp;nbsp;
+                                                            <t t-esc="amount_by_group[2]"
+                                                               t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
+                                                        </span>
+                                                    </td>
+                                                    <td name="td_amount_by_group_3"
+                                                        class="text-right o_price_total">
+                                                        <span t-esc="amount_by_group[1]"
+                                                              t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
+                                                    </td>
+                                                </t>
+                                                <t t-else="">
+                                                    <td name="td_amount_by_group_label">
+                                                        <span t-esc="amount_by_group[0]"/>
+                                                    </td>
+                                                    <td name="td_amount_by_group" class="text-right o_price_total">
+                                                        <span t-esc="amount_by_group[1]"
+                                                              t-options="{&quot;widget&quot;: &quot;monetary&quot;, &quot;display_currency&quot;: doc.pricelist_id.currency_id}"/>
+                                                    </td>
+                                                </t>
+                                            </tr>
+                                        </t>
+                                        <tr class="border-black o_total">
+                                            <td name="td_amount_total_label">
+                                                <strong>Total</strong>
+                                            </td>
+                                            <td name="td_amount_total" class="text-right">
+                                                <span t-field="doc.amount_total"/>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+
+                            <p t-field="doc.note"/>
+                            <p t-if="doc.payment_term_id.note">
+                                <span t-if="doc.payment_term_id" t-field="doc.payment_term_id.note"/>
+                            </p>
+                            <p id="fiscal_position_remark"
+                               t-if="doc.fiscal_position_id and doc.fiscal_position_id.sudo().note">
+                                <strong>Fiscal Position Remark:</strong>
+                                <span t-field="doc.fiscal_position_id.sudo().note"/>
+                            </p>
+                        </div>
+                    </div>
+                </t>
+            </t>
+        </t>
+    </template>
+</odoo>

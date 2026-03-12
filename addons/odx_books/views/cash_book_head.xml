@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_book_head_form" model="ir.ui.view">
+
+        <field name="name">book.head.form</field>
+        <field name="model">book.head</field>
+        <field name="arch" type="xml">
+
+
+            <form>
+                <sheet>
+                    <group>
+                        <field name="head_name"/>
+                        <field name="cash"/>
+                        <field name="bank"/>
+                        <field name="expense"/>
+
+                    </group>
+                </sheet>
+            </form>
+
+
+        </field>
+
+
+    </record>
+    <record id="view_book_head_tree" model="ir.ui.view">
+
+        <field name="name">book.head.tree</field>
+        <field name="model">book.head</field>
+        <field name="arch" type="xml">
+            <list>
+
+                <field name="head_name"/>
+
+            </list>
+        </field>
+    </record>
+
+
+    <record id="action_book_head" model="ir.actions.act_window">
+
+        <field name="name">BookHead</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">book.head</field>
+        <field name="view_mode">list,form</field>
+
+    </record>
+
+    <menuitem
+            id="menu_book_head"
+            name="Head"
+            parent="menu_configuration"
+            action="action_book_head"
+            sequence="10"
+    />
+</odoo>

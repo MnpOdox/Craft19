@@ -1,0 +1,51 @@
+<odoo>
+<!--    tree view-->
+    <record id="ship_tree_view"  model="ir.ui.view">
+        <field name="name">ship.view.tree</field>
+        <field name="model">shipment.ship</field>
+        <field name="arch" type="xml">
+            <list string="Ship List">
+                <field name="name"/>
+<!--                <field name="number"/>-->
+            </list>
+        </field>
+    </record>
+
+
+
+<!--    form view-->
+    <record id="ship_form_view" model="ir.ui.view">
+        <field name="name">ship.view.form</field>
+        <field name="model">shipment.ship</field>
+        <field name="arch" type="xml">
+            <form string="Ship Form">
+
+                <sheet>
+                    <group>
+                        <group>
+                        <field name="name"/>
+                    </group>
+                    </group>
+
+                </sheet>
+
+            </form>
+        </field>
+    </record>
+
+
+
+<!--    action-->
+    <record id="ship_tree_action"  model="ir.actions.act_window">
+        <field name="name">Ship</field>
+        <field name="res_model">shipment.ship</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+
+    <menuitem id="main_shipment_menu" name="Shipment" parent="point_of_sale.menu_point_config_product" sequence="8"/>
+
+    <menuitem id="ship_menu" action="ship_tree_action" parent="main_shipment_menu"/>
+
+
+</odoo>

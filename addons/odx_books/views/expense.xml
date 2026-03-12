@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_book_expense_tree" model="ir.ui.view">
+
+        <field name="name">book.expense.tree</field>
+        <field name="model">expense.book</field>
+        <field name="arch" type="xml">
+            <list editable="bottom">
+                <field name="date"/>
+                <field name="head_id" options='{"no_edit": True, "no_create": True}'/>
+                <field name="description"/>
+                <field name="amount"/>
+                <field name="company_id" invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+
+    <record id="view_book_expense_search" model="ir.ui.view">
+
+        <field name="name">expense.book.search</field>
+        <field name="model">expense.book</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="head_id"/>
+                <field name="date"/>
+                <filter string="Expense Head" name="group_expense_head" context="{'group_by':'head_id'}"/>
+                <filter string="Expense Date" name="group_expense_date" context="{'group_by':'date'}"/>
+            </search>
+
+
+        </field>
+
+    </record>
+
+    <record id="action_book_expense" model="ir.actions.act_window">
+
+        <field name="name">Expense Book</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">expense.book</field>
+        <field name="view_mode">list</field>
+
+    </record>
+    <menuitem
+            id="menu_book_expense"
+            name="Expense"
+            parent="menu_books_root"
+            action="action_book_expense"
+            sequence="30"
+    />
+
+</odoo>

@@ -1,0 +1,44 @@
+<odoo>
+     <record id="tracking_update_form_view" model="ir.ui.view">
+        <field name="name">tracking.update.wizard.form.view</field>
+        <field name="model">tracking.update.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <group>
+                        <field name="start_date" />
+                    </group>
+                    <group>
+                        <field name="end_date"/>
+                    </group>
+                    <field name="tracking_line_ids" nolabel="1">
+                        <list string="" editable="bottom">
+                            <field name="pos_order_id" invisible="1"/>
+                            <field name="partner_id" readonly="1"/>
+                            <field name="order_number" readonly="1"/>
+                            <field name="courier_id"/>
+                            <field name="tracking_number"/>
+                        </list>
+                    </field>
+                </group>
+
+                <footer>
+                    <button name="tracking_update" string="Update" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-default" special="cancel" />
+                </footer>
+            </form>
+        </field>
+    </record>
+
+     <record id="action_tracking_update" model="ir.actions.act_window">
+        <field name="name">Tracking Update</field>
+        <field name="res_model">tracking.update.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+
+
+   <menuitem id="menu_tracking_update" name="Tracking Update" action="action_tracking_update" parent="point_of_sale.menu_point_of_sale" sequence="101"/>
+
+</odoo>

@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_bank_book_form" model="ir.ui.view">
+        <field name="name">bank.book.form</field>
+        <field name="model">bank.book</field>
+        <field name="arch" type="xml">
+            <form string="Bank Book">
+                <header>
+                    <button id="button_confirm" string="Confirm" class="btn-primary" name="action_confirm"
+                            type="object" invisible="state in ('confirm', 'done', 'cancel')"/>
+                    <button id="button_done" string="Done" class="btn-primary" name="action_done"
+                            type="object" groups="odx_books.group_book_manager" invisible="state != 'confirm'"/>
+                    <button id="button_draft" string="Set to Draft" class="btn-primary" name="action_draft"
+                            type="object" groups="odx_books.group_book_manager" invisible="state != 'confirm'"/>
+                    <button id="button_cancel" string="Cancel" name="action_cancel"
+                            type="object" groups="odx_books.group_book_manager" invisible="state == 'cancel'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirm,done,cancel"/>
+                </header>
+
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_receivable" type="object" class="oe_stat_button" icon="fa-money">
+                            <span class="o_stat_text">Receivable</span>
+                        </button>
+                        <button name="action_open_expense" type="object" class="oe_stat_button" icon="fa-credit-card">
+                            <span class="o_stat_text">Expense</span>
+                        </button>
+                    </div>
+
+                    <group>
+                        <group>
+                            <field name="name" readonly="state in ('confirm', 'done', 'cancel')"/>
+                            <field name="company_id" readonly="state in ('confirm', 'done', 'cancel')"/>
+                            <field name="open_balance" readonly="state in ('confirm', 'done', 'cancel')"/>
+                        </group>
+                        <group>
+                            <field name="start_date" readonly="state in ('confirm', 'done', 'cancel')"/>
+                            <field name="end_date" readonly="state in ('confirm', 'done', 'cancel')"/>
+                            <field name="cur_balance" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Bank Line Details" name="bank_details">
+                            <field name="bank_line_ids" readonly="state in ('done', 'cancel')">
+                                <list editable="bottom">
+                                    <field name="date"/>
+                                    <field name="company_id" invisible="1"/>
+                                    <field name="head_id" options='{"no_edit": True, "no_create": True}'/>
+                                    <field name="description"/>
+                                    <field name="amount"/>
+                                    <field name="balance"/>
+                                </list>
+                                <form>
+                                    <group>
+                                        <field name="date"/>
+                                        <field name="company_id" invisible="1"/>
+                                        <field name="head_id" options='{"no_edit": True, "no_create": True}'/>
+                                        <field name="description"/>
+                                        <field name="amount"/>
+                                        <field name="balance"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+
+    <record id="view_bank_book_tree" model="ir.ui.view">
+
+        <field name="name">bank.book.tree</field>
+        <field name="model">bank.book</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="open_balance"/>
+                <field name="cur_balance" sum="Total of amount"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_bank_book_search" model="ir.ui.view">
+
+        <field name="name">bank.book.search</field>
+        <field name="model">bank.book</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="start_date"/>
+                <field name="name"/>
+                <field name="open_balance"/>
+                <field name="state"/>
+                <filter string="Start Month" name="group_start_month" context="{'group_by': 'start_date:month'}"/>
+            </search>
+        </field>
+
+    </record>
+
+    <record id="action_bank_book" model="ir.actions.act_window">
+
+        <field name="name">BankBook</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">bank.book</field>
+        <field name="view_mode">list,form</field>
+
+
+    </record>
+
+    <record id="action_bank_book_view_list" model="ir.actions.act_window.view">
+        <field name="sequence" eval="1"/>
+        <field name="view_mode">list</field>
+        <field name="view_id" ref="view_bank_book_tree"/>
+        <field name="act_window_id" ref="action_bank_book"/>
+    </record>
+
+    <record id="action_bank_book_view_form" model="ir.actions.act_window.view">
+        <field name="sequence" eval="2"/>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_bank_book_form"/>
+        <field name="act_window_id" ref="action_bank_book"/>
+    </record>
+
+    <menuitem
+            id="menu_bank_books"
+            name="Bank"
+            parent="menu_books_root"
+            action="action_bank_book"
+            sequence="20"
+    />
+
+</odoo>

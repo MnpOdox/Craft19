@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="inherited_pos_session_view" model="ir.ui.view">
+        <field name="name">pos.session.form.view.inherit</field>
+        <field name="model">pos.session</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_session_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//button[@name='action_show_payments_list']" position="attributes">
+                <attribute name="groups">odx_pos_delivery_charge.group_pos_payment</attribute>
+            </xpath>
+        </field>
+    </record>
+</odoo>

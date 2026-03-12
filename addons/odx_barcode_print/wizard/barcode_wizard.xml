@@ -1,0 +1,47 @@
+<odoo>
+    <data>
+        <record model="ir.ui.view" id="barcode_wizard_view">
+            <field name="name">odx.barcode.wizard.view</field>
+            <field name="model">odx.barcode.wizard</field>
+            <field name="arch" type="xml">
+
+                <form string="Multi Product barcode">
+                    <group>
+                        <group>
+                            <field name="multiple_products_ids" widget="many2many_tags"/>
+                        </group>
+                        <footer>
+                            <button name="barcode_multiple_product" type="object" string="Print Barcode"
+                                    class="oe_highlight"/>
+                            <button special="cancel" string="Cancel"/>
+                        </footer>
+                    </group>
+                </form>
+            </field>
+        </record>
+
+        <record model="ir.actions.act_window" id="barcode_wizard_action">
+            <field name="name">Barcode Wizard</field>
+            <field name="res_model">odx.barcode.wizard</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+            <field name="binding_model_id" ref="model_product_product"/>
+            <field name="context">{"default_multiple_products_ids":active_ids}</field>
+        </record>
+
+
+<!--    <record model="ir.actions.server" id="barcode wizard_button_action">-->
+<!--        <field name="name"> Barcode:Multi product</field>-->
+<!--        <field name="model_id" ref="model_product_product"/>-->
+<!--        <field name="binding_model_id" ref="model_product_product"/>-->
+<!--        <field name="state">code</field>-->
+<!--        <field name="code">records.button_action_wizard()</field>-->
+<!--    </record>-->
+
+
+<!--        <menuitem name="Multiple Barcodes" parent="sale.menu_product_template_action" id="barcode_wizard_view"-->
+<!--                  action="barcode_wizard_action" sequence="50" groups="base.group_no_one"/>-->
+
+
+    </data>
+</odoo>

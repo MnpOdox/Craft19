@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+
+<templates id="template" xml:space="preserve">
+    <t t-name="ExtendedNumpadWidget" t-inherit="point_of_sale.NumpadWidget" t-inherit-mode="extension" owl="1">
+
+     <xpath expr="//button[text()='Disc']" position="attributes">
+            <attribute name="class">discbutton</attribute>
+        </xpath>
+
+         <xpath expr="//button[text()='Price']" position="attributes">
+            <attribute name="class">Pricebutton</attribute>
+        </xpath>
+
+    </t>
+</templates>
+
+

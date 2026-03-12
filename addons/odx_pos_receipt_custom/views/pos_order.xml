@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+<record id="pos_order_only_form_inherit" model="ir.ui.view">
+            <field name="name">view.pos.template.form.inherit</field>
+            <field name="model">pos.order</field>
+            <field name="inherit_id" ref="point_of_sale.view_pos_pos_form" />
+            <field name="arch" type="xml">
+                <button name="refund" position="after" >
+                    <button name="print_order" string="Order Receipt" type="object" invisible="state == 'draft'"/>
+
+                </button>
+                <xpath expr="//field[@name='lines']/list/field[@name='currency_id']" position="after">
+                    <field name="note"/>
+
+                </xpath>
+
+            </field>
+        </record>
+    </data>
+</odoo>

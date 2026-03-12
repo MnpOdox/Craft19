@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="odx_pos_receipt_custom.Orderline" t-inherit="point_of_sale.Orderline" t-inherit-mode="extension">
+        <xpath expr="//ul[hasclass('info-list')]" position="inside">
+            <li t-if="line.getReceiptNote &amp;&amp; line.getReceiptNote()" class="info orderline-note">
+                <i class="fa fa-tag me-1" role="img" aria-label="Note" title="Note"/>
+                <i><t t-esc="line.getReceiptNote()"/></i>
+            </li>
+        </xpath>
+    </t>
+
+    <t t-name="odx_pos_receipt_custom.OrderReceipt" t-inherit="point_of_sale.OrderReceipt" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('pos-receipt-taxes')]" position="replace"/>
+    </t>
+</templates>

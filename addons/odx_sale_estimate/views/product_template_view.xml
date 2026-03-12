@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_template_view_customisation" model="ir.ui.view">
+        <field name="name">product.template.form.customisation</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_form_view"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='options']" position="inside">
+                <span class="d-inline-block">
+                    <field name="disable_order_line_sequence"/>
+                    <label for="disable_order_line_sequence" string="Disable Order Line Sequence"/>
+                </span>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates id="template" xml:space="preserve">
+    <t t-name="odx_craft_pos_customisation.PaymentScreen" t-inherit="point_of_sale.PaymentScreenButtons" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('payment-buttons')]" position="inside">
+            <div class="d-flex align-items-center gap-2 mt-1">
+                <input type="checkbox"
+                    id="odx_online_order"
+                    class="form-check-input m-0"
+                    t-att-checked="currentOrder.online_order"
+                    t-on-change="(ev) => this.toggleOnlineOrder(ev)"/>
+                <label class="form-check-label" for="odx_online_order">Online Order</label>
+            </div>
+        </xpath>
+    </t>
+</templates>

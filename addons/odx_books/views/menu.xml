@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <menuitem
+            id="menu_book_root"
+            name="Book"
+            sequence="1"
+            web_icon="odx_books,static/description/book3.png"
+    />
+
+     <menuitem
+            id="menu_books_root"
+            name="Books"
+            parent="menu_book_root"
+            sequence="5"/>
+    <menuitem
+            id="menu_configuration"
+            name="Configuration"
+            parent="menu_book_root"
+            sequence="5"/>
+
+</odoo>

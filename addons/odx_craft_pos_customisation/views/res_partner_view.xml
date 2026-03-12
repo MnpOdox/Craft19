@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <!-- Inherit partner Form View to Modify it -->
+        <record id="view_partner_form_inherit" model="ir.ui.view">
+            <field name="model">res.partner</field>
+            <field name="inherit_id" ref="base.view_partner_form"/>
+            <field name="arch" type="xml">
+
+                <xpath expr="//div[hasclass('o_address_format')]/field[@name='country_id']" position="after">
+                    <field name="country_code" placeholder="Country code"/>
+                    <field name="location_link" widget="url" placeholder="Location"/>
+                    <field name="house_name" placeholder="House name"/>
+                    <field name="district" placeholder="District"/>
+                    <field name="pincode" placeholder="Pincode"/>
+                </xpath>
+
+                <xpath expr="//field[@name='country_id']" position="attributes">
+                    <attribute name="required">1</attribute>
+                </xpath>
+
+                <xpath expr="//field[@name='phone']" position="attributes">
+                    <attribute name="required">1</attribute>
+                </xpath>
+
+            </field>
+        </record>
+    </data>
+</odoo>
