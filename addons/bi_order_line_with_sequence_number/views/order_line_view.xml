@@ -42,6 +42,7 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='sequence']" position="before">
                     <field name="purchase_sequence_number" groups="bi_order_line_with_sequence_number.access_display_order_line_number"/>
+                    <field name="vendor_line_number"/>
             </xpath>
         </field>
     </record>

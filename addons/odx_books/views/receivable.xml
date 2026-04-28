@@ -100,6 +100,7 @@
             parent="menu_books_root"
             action="action_receivable_book"
             sequence="40"
+            groups="odx_books.group_receivable_book_user,odx_books.group_book_manager"
     />
 
 </odoo>

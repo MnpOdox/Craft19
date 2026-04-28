@@ -1,6 +1,6 @@
 from dateutil.relativedelta import relativedelta
 from odoo import api, fields, models, _, tools
-from odoo.exceptions import ValidationError,UserError
+from odoo.exceptions import AccessError, ValidationError, UserError
 from datetime import datetime,date
 
 class BankBook(models.Model):
@@ -39,11 +39,16 @@ class BankBook(models.Model):
         return last_day_of_current_month
 
     # button conditions
+    def _check_manager_approval_rights(self):
+        if not self.env.user.has_group('odx_books.group_book_manager'):
+            raise AccessError('Only Book Manager can mark as Done.')
+
     def action_confirm(self):
-        self.state = 'confirm'
+        self.write({'state': 'confirm'})
 
     def action_done(self):
-        self.state = 'done'
+        self._check_manager_approval_rights()
+        self.sudo().write({'state': 'done'})
 
     def action_draft(self):
         self.state = 'draft'
@@ -80,13 +85,15 @@ class BankBook(models.Model):
     @api.constrains('state', 'company_id')
     def _check_existing_confirm_record(self):
         for rec in self:
-            existing_confirm_record = self.search([
+            if rec.state != 'confirm':
+                continue
+            existing_confirm_count = self.search_count([
                 ('state', '=', 'confirm'),
                 ('company_id', '=', rec.company_id.id),
                 ('id', '!=', rec.id)
             ])
-            if existing_confirm_record and rec.state == 'confirm':
-                raise ValidationError("There is already a record in 'In Progress' state for this company.")
+            if existing_confirm_count >= 2:
+                raise ValidationError("Only 2 records can be in 'In Progress' state for this Company.")
 
     # @api.constrains('state')
     # def _check_existing_confirm_record(self):
@@ -109,6 +116,7 @@ class BankbookLines(models.Model):
     balance = fields.Float(string="Balance",compute='_compute_balance_amount',store=False)
     name_id = fields.Many2one('bank.book')
     company_id = fields.Many2one('res.company', string='Company',default=lambda self: self.env.company)
+    expense_id = fields.Many2one('expense.book', string='Expense Entry', readonly=True, copy=False, ondelete='set null')
 
     # compute the balance in bank_line_ids
     @api.depends('amount', 'name_id.open_balance')
@@ -126,4 +134,45 @@ class BankbookLines(models.Model):
                     break
             rec.balance = rec.name_id.open_balance + previous_amounts
 
+    def _prepare_expense_vals(self):
+        self.ensure_one()
+        return {
+            'date': self.date,
+            'description': self.description,
+            'head_id': self.head_id.id,
+            'amount': self.amount,
+            'company_id': self.company_id.id,
+        }
+
+    def _sync_expense_entry(self):
+        expense_model = self.env['expense.book'].sudo()
+        for rec in self:
+            if rec.head_id and rec.head_id.auto_expense:
+                vals = rec._prepare_expense_vals()
+                if rec.expense_id:
+                    rec.expense_id.sudo().write(vals)
+                else:
+                    rec.expense_id = expense_model.create(vals)
+            elif rec.expense_id:
+                rec.expense_id.sudo().unlink()
+                rec.expense_id = False
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super(BankbookLines, self).create(vals_list)
+        records._sync_expense_entry()
+        return records
+
+    def write(self, vals):
+        res = super(BankbookLines, self).write(vals)
+        if any(k in vals for k in ['head_id', 'date', 'description', 'amount', 'company_id']):
+            self._sync_expense_entry()
+        return res
+
+    def unlink(self):
+        linked_expenses = self.mapped('expense_id')
+        res = super(BankbookLines, self).unlink()
+        if linked_expenses:
+            linked_expenses.sudo().unlink()
+        return res
 

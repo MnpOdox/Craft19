@@ -14,6 +14,7 @@
                         <field name="cash"/>
                         <field name="bank"/>
                         <field name="expense"/>
+                        <field name="auto_expense"/>
 
                     </group>
                 </sheet>
@@ -53,5 +54,6 @@
             parent="menu_configuration"
             action="action_book_head"
             sequence="10"
+            groups="odx_books.group_book_manager"
     />
 </odoo>

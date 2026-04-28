@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+        <record id="group_cash_book_user" model="res.groups">
+            <field name="name">Cash Book User</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <record id="group_bank_book_user" model="res.groups">
+            <field name="name">Bank Book User</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <record id="group_receivable_book_user" model="res.groups">
+            <field name="name">Receivable Book User</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <record id="group_expense_book_user" model="res.groups">
+            <field name="name">Expense Book User</field>
+            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
+        </record>
+
+        <record id="group_book_manager" model="res.groups">
+            <field name="name">Book Manager</field>
+            <field name="implied_ids" eval="[
+                (4, ref('odx_books.group_cash_book_user')),
+                (4, ref('odx_books.group_bank_book_user')),
+                (4, ref('odx_books.group_receivable_book_user')),
+                (4, ref('odx_books.group_expense_book_user'))
+            ]"/>
+        </record>
+
+        <function model="res.groups" name="write" eval="([ref('odx_books.group_book_manager')], {
+            'name': 'Book Manager',
+            'implied_ids': [
+                (4, ref('odx_books.group_cash_book_user')),
+                (4, ref('odx_books.group_bank_book_user')),
+                (4, ref('odx_books.group_receivable_book_user')),
+                (4, ref('odx_books.group_expense_book_user'))
+            ]
+        })"/>
+    </data>
+</odoo>

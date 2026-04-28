@@ -26,6 +26,7 @@ class PurchaseOrderLine(models.Model):
     _inherit = 'purchase.order.line'
 
     purchase_sequence_number = fields.Integer(string='No.',compute="_compute_purchase_order_line_sequence")
+    vendor_line_number = fields.Integer(string='Vendor Line No.')
 
     @api.depends('purchase_sequence_number')
     def _compute_purchase_order_line_sequence(self):
@@ -87,5 +88,4 @@ class PurchaseRequisition(models.Model):
         for record in self.requisition_id.line_ids:
             record.purchase_requistion_sequence = number
             number += 1
-
 

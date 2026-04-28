@@ -6,6 +6,7 @@
     'summary': 'odoo14 Development',
     'depends': ['base', 'mail'],
     'data': [
+        'security/groups.xml',
         'security/security.xml',
         'security/ir.model.access.csv',
         'views/menu.xml',
