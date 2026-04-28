@@ -31,10 +31,11 @@ patch(ControlButtons.prototype, {
         }
 
         const value = Math.max(0, Number(amount) || 0);
-        const existingDiscount = order.getDiscountLine();
-        if (existingDiscount) {
-            existingDiscount.delete();
-        }
+        const productId = (typeof product === "number") ? product : product.id;
+        const discountLines = order.getOrderlines().filter(
+            (line) => line.product_id && line.product_id.id === productId
+        );
+        discountLines.forEach((line) => line.delete());
         if (!value) {
             return;
         }

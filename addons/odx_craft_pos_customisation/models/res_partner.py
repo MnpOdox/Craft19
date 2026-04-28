@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from odoo import fields, models, api,exceptions
+from odoo import fields, models, api
 import ast
 
 
@@ -12,23 +12,6 @@ class ResPartner(models.Model):
     pincode = fields.Char(string="pincode")
 
     country_code = fields.Char(string='Country Code')
-
-
-
-    _sql_constraints = [
-        ('phone_unique',
-         'UNIQUE(phone)',
-         "Customer Phone must be unique")
-    ]
-
-    @api.constrains('phone')
-    def phone_number_unique(self):
-        for rec in self:
-            partners = self.env['res.partner'].sudo().search([])
-
-            for partner in partners:
-                if rec.phone == partner.phone and rec.id != partner.id:
-                    raise exceptions.ValidationError("Customer Phone must be unique")
 
     @api.onchange('country_id')
     def get_country_code(self):
@@ -70,5 +53,4 @@ class ResPartner(models.Model):
             if name not in result:
                 result.append(name)
         return result
-
 

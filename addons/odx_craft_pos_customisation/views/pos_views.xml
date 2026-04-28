@@ -16,7 +16,6 @@
                                 <field name="tracking_number"/>
                             </group>
                             <group>
-                                <field name="order_status"/>
                                 <field name="online_order"/>
                             </group>
                         </group>
@@ -31,18 +30,5 @@
             </field>
         </record>
 
-
-<!--        <record id="multi_order_status_change" model="ir.actions.server">-->
-<!--            <field name="name">Order status change</field>-->
-<!--            <field name="model_id" ref="point_of_sale.model_pos_order"/>-->
-<!--            <field name="binding_model_id" ref="point_of_sale.model_pos_order"/>-->
-<!--            <field name="binding_view_types">list</field>-->
-<!--            <field name="state">code</field>-->
-<!--            <field name="code">action = records.batch_order_status_change()</field>-->
-<!--        </record>-->
-
-
     </data>
 </odoo>
-
-

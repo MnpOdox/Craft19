@@ -28,14 +28,14 @@ from odoo import api, models
 class ProductAutoBarcode(models.Model):
     _inherit = 'product.product'
 
-    @api.model
-    def create(self, vals):
-        res = super(ProductAutoBarcode, self).create(vals)
-        ean = self.env['ir.sequence'].next_by_code(
-            'product.product.craft')
-        if not res.barcode:
-            res.barcode = ean
-        return res
+    @api.model_create_multi
+    def create(self, vals_list):
+        products = super().create(vals_list)
+        sequence = self.env['ir.sequence']
+        for product in products:
+            if not product.barcode:
+                product.barcode = sequence.next_by_code('product.product.craft')
+        return products
 
 
 def ean_checksum(eancode):
@@ -88,13 +88,13 @@ def generate_ean(ean):
 class ProductTemplateAutoBarcode(models.Model):
     _inherit = 'product.template'
 
-    @api.model
+    @api.model_create_multi
     def create(self, vals_list):
-        templates = super(ProductTemplateAutoBarcode, self).create(vals_list)
-        ean = self.env['ir.sequence'].next_by_code(
-            'product.product.craft')
-        if not templates.barcode:
-            templates.barcode = ean
+        templates = super().create(vals_list)
+        sequence = self.env['ir.sequence']
+        for template in templates:
+            if not template.barcode:
+                template.barcode = sequence.next_by_code('product.product.craft')
         return templates
 
 

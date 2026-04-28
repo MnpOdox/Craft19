@@ -8,6 +8,7 @@ class PosConfigInherit(models.Model):
 
     disc_button = fields.Boolean("Disc Button", default=True)
     price_button = fields.Boolean("Price Button", default=True)
+    show_product_price = fields.Boolean("Show Product Price", default=True)
 
     # delivery charge boolean
 
@@ -24,7 +25,7 @@ class PosConfigInherit(models.Model):
         # (e.g. use_pricelist) and only append when a concrete list exists.
         if not result:
             return result
-        for name in ("disc_button", "price_button", "del_charge", "del_charge_pro_id"):
+        for name in ("disc_button", "price_button", "show_product_price", "del_charge", "del_charge_pro_id"):
             if name not in result:
                 result.append(name)
         return result

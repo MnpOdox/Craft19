@@ -1,6 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates id="template" xml:space="preserve">
     <t t-name="odx_pos_receipt_custom.Orderline" t-inherit="point_of_sale.Orderline" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('product-name')]" position="replace">
+            <div class="product-name d-flex flex-grow-1 pe-2 text-truncate" t-att-class="{ 'align-items-center' : vals.isReceipt }">
+                <t t-if="vals.isReceipt">
+                    <span class="line-sequence d-inline-block fw-bolder pe-1">
+                        <t t-esc="line.order_id.lines.indexOf(line) + 1"/>.
+                    </span>
+                    <span class="text-wrap d-inline">
+                        <t t-esc="vals.name" />
+                        <span class="text-muted">
+                            (Qty:
+                            <t t-esc="vals.unitPart"/>
+                            <small t-if="vals.decimalPart" t-out="vals.decimalPart" class="fw-normal" style="font-size: 85%;" />
+                            )
+                        </span>
+                        <br/>
+                        <small t-if="vals.attributeString" t-out="vals.attributeString" class="attribute-line fst-italic" />
+                    </span>
+                </t>
+                <t t-else="">
+                    <span class="qty d-inline-block fw-bolder" t-attf-class="{{ vals.isReceipt ? 'pe-2' : 'px-1' }}">
+                        <t t-esc="vals.unitPart"/>
+                        <small t-if="vals.decimalPart" t-out="vals.decimalPart" class="fw-normal" style="font-size: 85%;" />
+                    </span>
+                    <span class="text-wrap d-inline">
+                        <t t-esc="vals.name" /><br/>
+                        <small t-if="vals.attributeString" t-out="vals.attributeString" class="attribute-line fst-italic" />
+                    </span>
+                </t>
+            </div>
+        </xpath>
         <xpath expr="//ul[hasclass('info-list')]" position="inside">
             <li t-if="line.getReceiptNote &amp;&amp; line.getReceiptNote()" class="info orderline-note">
                 <i class="fa fa-tag me-1" role="img" aria-label="Note" title="Note"/>
@@ -11,5 +41,28 @@
 
     <t t-name="odx_pos_receipt_custom.OrderReceipt" t-inherit="point_of_sale.OrderReceipt" t-inherit-mode="extension">
         <xpath expr="//div[hasclass('pos-receipt-taxes')]" position="replace"/>
+    </t>
+
+    <t t-name="odx_pos_receipt_custom.ReceiptHeader" t-inherit="point_of_sale.ReceiptHeader" t-inherit-mode="extension">
+        <xpath expr="//span[hasclass('ticket-name-prefix')]" position="replace">
+            <span class="ticket-name-prefix">
+                Order
+            </span>
+        </xpath>
+        <xpath expr="//div[hasclass('cashier')]" position="after">
+            <div t-if="order.company?.street or order.company?.street2 or order.company?.city or order.company?.zip" class="company-address mt-1">
+                <div t-if="order.company?.street" t-esc="order.company.street"/>
+                <div t-if="order.company?.street2" t-esc="order.company.street2"/>
+                <div>
+                    <t t-if="order.company?.city" t-esc="order.company.city"/>
+                    <t t-if="order.company?.state_id?.name">
+                        <t t-if="order.company?.city">, </t><t t-esc="order.company.state_id.name"/>
+                    </t>
+                    <t t-if="order.company?.zip">
+                        <t t-if="order.company?.city or order.company?.state_id?.name"> - </t><t t-esc="order.company.zip"/>
+                    </t>
+                </div>
+            </div>
+        </xpath>
     </t>
 </templates>

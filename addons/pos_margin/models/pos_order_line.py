@@ -3,6 +3,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl.html).
 
 from odoo import api, fields, models
+from odoo.tools import float_is_zero
 
 
 class PosOrderLine(models.Model):
@@ -22,15 +23,30 @@ class PosOrderLine(models.Model):
         store=True,
         digits="Product Price",
     )
+    margin_percent = fields.Float(
+        "Margin (%)",
+        compute="_compute_multi_margin",
+        store=True,
+        digits=(12, 4),
+    )
 
     # Compute Section
     @api.depends("product_id", "qty", "price_subtotal")
     def _compute_multi_margin(self):
-        for line in self.filtered("product_id"):
-            purchase_price = self._get_purchase_price(line)
+        for line in self:
+            purchase_price = self._get_purchase_price(line) if line.product_id else 0.0
             line.purchase_price = purchase_price
-            # if purchase_price:
-            line.margin = line.price_subtotal - (purchase_price * line.qty)
+            sign = -1 if line.order_id.is_refund else 1
+            subtotal = line.price_subtotal * sign
+            line.margin = subtotal - (purchase_price * line.qty)
+            line.margin_percent = (
+                line.margin / subtotal
+                if line.currency_id
+                and not float_is_zero(
+                    subtotal, precision_rounding=line.currency_id.rounding
+                )
+                else 0.0
+            )
 
     @api.model
     def _get_purchase_price(self, line):

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="pos_config_view_form_auto_lock" model="ir.ui.view">
+        <field name="name">pos.config.form.auto.lock</field>
+        <field name="model">pos.config</field>
+        <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//setting[field[@name='module_pos_hr']]" position="after">
+                <setting string="Auto Lock" help="Lock the POS register automatically when it is idle.">
+                    <field name="auto_lock_enabled" readonly="has_active_session"/>
+                    <div class="content-group mt16" invisible="not auto_lock_enabled">
+                        <div class="row">
+                            <div class="col-lg-5 o_light_label">
+                                <label for="auto_lock_minutes" string="Idle Minutes"/>
+                            </div>
+                            <div class="col-lg-7">
+                                <field name="auto_lock_minutes" readonly="has_active_session"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-muted mt8" invisible="module_pos_hr">
+                        Employee login must be enabled for the lock screen.
+                    </div>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+</odoo>
