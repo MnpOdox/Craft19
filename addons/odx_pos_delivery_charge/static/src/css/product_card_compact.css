@@ -1,0 +1,21 @@
+.product .product-img {
+    display: none !important;
+}
+
+.product .product-content {
+    padding-top: 0.25rem !important;
+    min-height: 5.25rem;
+}
+
+.product .product-name {
+    -webkit-line-clamp: 3 !important;
+    line-clamp: 3 !important;
+    white-space: normal !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+.product .product-price {
+    position: static !important;
+    display: block !important;
+}

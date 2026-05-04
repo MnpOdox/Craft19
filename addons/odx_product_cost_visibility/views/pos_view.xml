@@ -3,9 +3,28 @@
     <record id="pos_margin_form_inherit" model="ir.ui.view">
         <field name="model">pos.order</field>
         <field name="inherit_id" ref="pos_margin.view_pos_order_form" />
+        <field name="priority" eval="999"/>
         <field name="arch" type="xml">
+            <xpath expr="//field[@name='lines']//field[@name='purchase_price']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
+            <xpath expr="//field[@name='lines']//field[@name='total_cost']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
             <xpath expr="//field[@name='margin']" position="attributes">
-                <attribute name="groups">sales_team.group_sale_manager,point_of_sale.group_pos_manager,base.group_system</attribute>
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
+            <xpath expr="//field[@name='margin_percent']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
+            <xpath expr="//field[@name='lines']//field[@name='margin']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
+            <xpath expr="//field[@name='lines']//field[@name='margin_percent']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
+            <xpath expr="//label[@for='margin']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
             </xpath>
         </field>
     </record>
@@ -13,9 +32,10 @@
     <record id="pos_margin_tree_inherit" model="ir.ui.view">
         <field name="model">pos.order</field>
         <field name="inherit_id" ref="pos_margin.view_pos_order_tree" />
+        <field name="priority" eval="999"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='margin']" position="attributes">
-                <attribute name="groups">sales_team.group_sale_manager,point_of_sale.group_pos_manager,base.group_system</attribute>
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
             </xpath>
         </field>
     </record>

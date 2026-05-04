@@ -4,12 +4,22 @@
         <field name="name">sale.order.margin.restrict.form</field>
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale_margin.sale_margin_sale_order"/>
+        <field name="priority" eval="999"/>
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='order_line']/list//field[@name='margin']" position="attributes">
-                <attribute name="groups">sales_team.group_sale_manager,point_of_sale.group_pos_manager,base.group_system</attribute>
+            <xpath expr="//field[@name='order_line']//field[@name='purchase_price']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
+            <xpath expr="//field[@name='order_line']//field[@name='margin']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
+            <xpath expr="//field[@name='order_line']//field[@name='margin_percent']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
             </xpath>
             <xpath expr="//field[@name='margin']" position="attributes">
-                <attribute name="groups">sales_team.group_sale_manager,point_of_sale.group_pos_manager,base.group_system</attribute>
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
+            </xpath>
+            <xpath expr="//field[@name='margin_percent']" position="attributes">
+                <attribute name="groups">sales_team.group_sale_manager,base.group_system</attribute>
             </xpath>
         </field>
     </record>

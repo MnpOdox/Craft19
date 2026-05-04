@@ -17,7 +17,7 @@
                                         <br/>
 
 
-                                        <img style="width:100%;padding-left:-150px;" t-if="o.barcode" t-att-src="'/report/barcode/?type=%s&amp;value=%s' % ('Code128', o.barcode)"/>
+                                        <img style="width:100%;padding-left:-150px;" t-if="o.barcode" t-att-src="'/report/barcode/Code128/%s' % (o.barcode or '')"/>
                                         <span style="font-size: 40px;font-weight:900;" t-field="o.barcode"/>
 
                                         <br/>
