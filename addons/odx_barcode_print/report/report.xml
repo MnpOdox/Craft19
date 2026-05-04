@@ -10,19 +10,20 @@
         <field name="margin_bottom">0</field>
         <field name="margin_left">0</field>
         <field name="margin_right">0</field>
-        <field name="dpi">300</field>
+        <field name="dpi">350</field>
     </record>
-    <report
-            id="product_barcode_report"
-            string="Barcode Craft- Normal"
-            model="product.product"
-            report_type="qweb-pdf"
-            name="odx_barcode_print.report_barcode_in_products"
-            file="odx_barcode_print.report_barcode_in_products"
-            print_report_name="'Products barcode - %s' % (object.name)"
-            paperformat="odx_barcode_print.paperformat_barcode"
-    />
-    ################################################################################
+    <record id="product_barcode_report" model="ir.actions.report">
+        <field name="name">Barcode Craft- Normal</field>
+        <field name="model">product.product</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">odx_barcode_print.report_barcode_in_products</field>
+        <field name="report_file">odx_barcode_print.report_barcode_in_products</field>
+        <field name="print_report_name">'Products barcode - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="odx_barcode_print.paperformat_barcode"/>
+        <field name="binding_model_id" ref="product.model_product_product"/>
+        <field name="binding_type">report</field>
+    </record>
+
     <record id="paperformat_barcode_la_beaute" model="report.paperformat">
         <field name="name">Barcode La Beaute</field>
         <field name="default" eval="True"/>
@@ -36,16 +37,17 @@
         <field name="margin_right">0</field>
         <field name="dpi">300</field>
     </record>
-    <report
-            id="product_barcode_report_la_beaute"
-            string="Barcode La Beaute- Tag"
-            model="product.product"
-            report_type="qweb-pdf"
-            name="odx_barcode_print.report_barcode_in_products_la_beaute"
-            file="odx_barcode_print.report_barcode_in_products_la_beaute"
-            print_report_name="'Products barcode - %s' % (object.name)"
-            paperformat="odx_barcode_print.paperformat_barcode_la_beaute"
-    />
+    <record id="product_barcode_report_la_beaute" model="ir.actions.report">
+        <field name="name">Barcode La Beaute- Tag</field>
+        <field name="model">product.product</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">odx_barcode_print.report_barcode_in_products_la_beaute</field>
+        <field name="report_file">odx_barcode_print.report_barcode_in_products_la_beaute</field>
+        <field name="print_report_name">'Products barcode - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="odx_barcode_print.paperformat_barcode_la_beaute"/>
+        <field name="binding_model_id" ref="product.model_product_product"/>
+        <field name="binding_type">report</field>
+    </record>
 
 
     ################################################################################
@@ -62,18 +64,16 @@
         <field name="margin_right">0</field>
         <field name="dpi">300</field>
     </record>
-    <report
-            id="product_barcode_report_labeaute_normal"
-            string="Barcode La Beaute -Normal"
-            model="product.product"
-            report_type="qweb-pdf"
-            name="odx_barcode_print.report_barcode_in_products_labeaute_normal"
-            file="odx_barcode_print.report_barcode_in_products_labeaute_normal"
-            print_report_name="'Products barcode - %s' % (object.name)"
-            paperformat="odx_barcode_print.paperformat_barcode_labeaute_normal"
-    />
-
-
-
+    <record id="product_barcode_report_labeaute_normal" model="ir.actions.report">
+        <field name="name">Barcode La Beaute -Normal</field>
+        <field name="model">product.product</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">odx_barcode_print.report_barcode_in_products_labeaute_normal</field>
+        <field name="report_file">odx_barcode_print.report_barcode_in_products_labeaute_normal</field>
+        <field name="print_report_name">'Products barcode - %s' % (object.name)</field>
+        <field name="paperformat_id" ref="odx_barcode_print.paperformat_barcode_labeaute_normal"/>
+        <field name="binding_model_id" ref="product.model_product_product"/>
+        <field name="binding_type">report</field>
+    </record>
 
 </odoo>
