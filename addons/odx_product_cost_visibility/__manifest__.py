@@ -6,8 +6,11 @@
     'description': """ Restrict access to product cost and margin for salespersons and make it visible only to sales managers. """,
     'website': 'http://www.odoxsofthub.com',
     'license': 'GPL-3',
-    'depends': ['product','pos_margin','sales_team','stock_account'],
+    'depends': ['product', 'sale_margin', 'pos_margin', 'sales_team', 'stock_account'],
     'data': [
+        'views/product.xml',
+        'views/sale_view.xml',
+        'views/pos_view.xml',
         'views/product_category.xml',
     ],
     'installable': True,
