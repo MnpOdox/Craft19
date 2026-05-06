@@ -23,7 +23,7 @@
 {
     'name': 'Product Barcode Generator',
     'version': '19.0.1.0.0',
-    'summary': 'Generates EAN13 Standard Barcode for Product.',
+    'summary': 'Automatically generates Code128-compatible barcodes for products.',
     'live_test_url': 'https://www.youtube.com/watch?v=0BrFcOEkWu4&feature=youtu.be',
     'category': 'Inventory',
     'author': 'Cybrosys Techno solutions',

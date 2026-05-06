@@ -9,6 +9,7 @@ class BankBook(models.Model):
     _description = 'Bank Book Records'
     _inherit = ['mail.thread', 'mail.activity.mixin']
     _rec_name = 'name'
+    _order = 'start_date desc, id desc'
 
     name = fields.Char(string='Name', required=True)
     start_date = fields.Date(string='Start Date', required=True, default=lambda self: self._get_first_day_of_current_month())
