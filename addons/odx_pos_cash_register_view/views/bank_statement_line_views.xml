@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!--
+            Odoo 19 ships no list view for account.bank.statement.line.
+            When the "Cash Register" button on a closed POS session opens
+            the lines for that session, the user only sees a single
+            "Number" column. This view adds the useful columns: Date,
+            Reference / Description, Partner, Amount, and Journal.
+        -->
+        <record id="view_bank_statement_line_tree" model="ir.ui.view">
+            <field name="name">account.bank.statement.line.list</field>
+            <field name="model">account.bank.statement.line</field>
+            <field name="arch" type="xml">
+                <list string="Cash Register Movements"
+                      decoration-success="amount &gt; 0"
+                      decoration-danger="amount &lt; 0"
+                      default_order="date desc, id desc">
+                    <field name="date"/>
+                    <field name="payment_ref" string="Description"/>
+                    <field name="partner_id" optional="hide"/>
+                    <field name="journal_id" optional="hide"/>
+                    <field name="pos_session_id" optional="hide"/>
+                    <field name="amount" sum="Total"/>
+                    <field name="currency_id" column_invisible="True"/>
+                </list>
+            </field>
+        </record>
+
+    </data>
+</odoo>
