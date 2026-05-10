@@ -6,7 +6,7 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
-        	<xpath expr="//field[@name='order_line']/tree/field[@name='sequence']" position="before" >
+        	<xpath expr="//field[@name='order_line']/list/field[@name='product_template_id']" position="before" >
                 <field name="sale_sequence_number" groups="bi_order_line_with_sequence_number.access_display_order_line_number"/>
             </xpath>
         </field>
@@ -17,7 +17,7 @@
         <field name="model">account.move</field>
         <field name="inherit_id" ref="account.view_move_form" />
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='invoice_line_ids']/tree/field[@name='sequence']" position="before" >
+            <xpath expr="//field[@name='invoice_line_ids']/list/field[@name='product_id']" position="before" >
 
                     <field name="invoice_sequence_number" groups="bi_order_line_with_sequence_number.access_display_order_line_number"/>
             </xpath>
@@ -40,7 +40,7 @@
         <field name="model">purchase.order</field>
         <field name="inherit_id" ref="purchase.purchase_order_form" />
         <field name="arch" type="xml">
-            <xpath expr="//field[@name='sequence']" position="before">
+            <xpath expr="//field[@name='order_line']/list/field[@name='product_id']" position="before">
                     <field name="purchase_sequence_number" groups="bi_order_line_with_sequence_number.access_display_order_line_number"/>
                     <field name="vendor_line_number"/>
             </xpath>
@@ -63,7 +63,7 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
-			<xpath expr="//field[@name='move_ids_without_package']/tree/field[@name='product_id']" position="before" >
+			<xpath expr="//field[@name='move_ids']/list/field[@name='product_id']" position="before" >
                     <field name="stock_move_sequence" groups="bi_order_line_with_sequence_number.access_display_order_line_number"/>
             </xpath>
         </field>

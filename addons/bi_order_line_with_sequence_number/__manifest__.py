@@ -14,8 +14,8 @@
     'website': 'https://www.browseinfo.com',
     'depends': ['base','sale_management','purchase','account','stock','purchase_requisition'],
     'data': [
-        'security/access_display_order_line.xml'
-
+        'security/access_display_order_line.xml',
+        'views/order_line_view.xml',
     ],
     'license':'OPL-1',
     'installable': True,

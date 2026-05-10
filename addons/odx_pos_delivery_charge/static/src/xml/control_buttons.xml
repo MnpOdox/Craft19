@@ -25,6 +25,7 @@
         </xpath>
         <xpath expr="//t[@t-if='props.showRemainingButtons']/div/button[hasclass('o_pricelist_button')]" position="before">
             <button
+                t-if="ui.isSmall"
                 class="btn btn-secondary btn-lg py-5 d-flex justify-content-center align-items-center"
                 t-att-class="buttonClass"
                 t-on-click="() => this.clickDiscount()"
@@ -34,6 +35,7 @@
                 <i class="fa fa-percent" role="img" aria-label="Discount"/>
             </button>
             <button
+                t-if="ui.isSmall"
                 class="btn btn-secondary btn-lg py-5 d-flex justify-content-center align-items-center"
                 t-att-class="buttonClass"
                 t-on-click="() => this.clickDeliveryCharge()"

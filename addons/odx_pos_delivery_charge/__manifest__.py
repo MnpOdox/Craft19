@@ -12,10 +12,13 @@
     ],
     'assets': {
         'point_of_sale._assets_pos': [
+            'odx_pos_delivery_charge/static/src/js/discount_amount_popup.js',
             'odx_pos_delivery_charge/static/src/js/control_buttons.js',
             'odx_pos_delivery_charge/static/src/js/product_card_price.js',
+            'odx_pos_delivery_charge/static/src/js/refund_discount.js',
             'odx_pos_delivery_charge/static/src/css/product_card_compact.css',
             'odx_pos_delivery_charge/static/src/xml/control_buttons.xml',
+            'odx_pos_delivery_charge/static/src/xml/discount_amount_popup.xml',
             'odx_pos_delivery_charge/static/src/xml/product_card_price.xml',
         ],
     },
