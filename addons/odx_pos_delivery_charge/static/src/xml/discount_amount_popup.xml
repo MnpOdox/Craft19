@@ -4,6 +4,7 @@
         <Dialog title="props.title" bodyClass="'d-flex flex-column justify-content-center'" size="'sm'">
             <div class="input-symbol mb-3">
                 <input
+                    t-ref="amountInput"
                     class="popup-input value active form-control form-control-lg text-center"
                     type="text"
                     inputmode="decimal"

@@ -1,5 +1,5 @@
 import { NumberPopup } from "@point_of_sale/app/components/popups/number_popup/number_popup";
-import { useState } from "@odoo/owl";
+import { onMounted, useRef, useState } from "@odoo/owl";
 
 export class DiscountAmountPopup extends NumberPopup {
     static template = "odx_pos_delivery_charge.DiscountAmountPopup";
@@ -11,8 +11,16 @@ export class DiscountAmountPopup extends NumberPopup {
 
     setup() {
         super.setup();
+        this.amountInputRef = useRef("amountInput");
         this.refundState = useState({
             refundPositive: !!this.props.defaultRefundPositive,
+        });
+        onMounted(() => {
+            const input = this.amountInputRef.el;
+            if (input) {
+                input.focus();
+                input.select();
+            }
         });
     }
 
@@ -22,6 +30,7 @@ export class DiscountAmountPopup extends NumberPopup {
 
     onInput(ev) {
         this.state.buffer = ev.target.value;
+        this.numberBuffer.set(this.state.buffer);
     }
 
     confirm() {
