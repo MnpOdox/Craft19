@@ -61,12 +61,16 @@ class StockMove(models.Model):
     stock_move_sequence = fields.Integer(string='No.',compute='_compute_stock_line_sequence')
     # mrp_sequence_no = fields.Integer(string='No.',compute='_compute_mrp_line_sequence')
 
-    @api.depends('stock_move_sequence')
+    @api.depends('picking_id', 'picking_id.move_ids')
     def _compute_stock_line_sequence(self):
-        number = 1
-        for record in self.picking_id.move_ids_without_package:
-            record.stock_move_sequence = number
-            number += 1
+        for move in self:
+            move.stock_move_sequence = 0
+        for picking in self.mapped('picking_id'):
+            moves = getattr(picking, 'move_ids', False) or getattr(picking, 'move_ids_without_package', False) or self.env['stock.move']
+            number = 1
+            for record in moves:
+                record.stock_move_sequence = number
+                number += 1
 
     # @api.depends('mrp_sequence_no')
     # def _compute_mrp_line_sequence(self):
@@ -88,4 +92,3 @@ class PurchaseRequisition(models.Model):
         for record in self.requisition_id.line_ids:
             record.purchase_requistion_sequence = number
             number += 1
-
