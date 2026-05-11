@@ -20,6 +20,10 @@ export class DiscountAmountPopup extends NumberPopup {
         this.refundState.refundPositive = !this.refundState.refundPositive;
     }
 
+    onInput(ev) {
+        this.state.buffer = ev.target.value;
+    }
+
     confirm() {
         this.props.getPayload({
             value: this.state.buffer,
