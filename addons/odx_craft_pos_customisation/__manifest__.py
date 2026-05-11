@@ -34,6 +34,7 @@
         'views/pos_views.xml',
         'views/ship.xml',
         'wizard/tracking_update.xml',
+        'wizard/pos_payment_method_change.xml',
     ],
     'demo': [
     ],

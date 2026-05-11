@@ -3,3 +3,4 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_shipment_ship,shipment.ship,model_shipment_ship,,1,1,1,1
 access_tracking_update_wizard,tracking.update.wizard,model_tracking_update_wizard,,1,1,1,1
 access_tracking_update_line,tracking.update.line,model_tracking_update_line,,1,1,1,1
+access_pos_payment_method_change_wizard,pos.payment.method.change.wizard,model_pos_payment_method_change_wizard,point_of_sale.group_pos_manager,1,1,1,1

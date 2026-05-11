@@ -1,0 +1,23 @@
+<odoo>
+    <record id="view_pos_payment_method_change_wizard_form" model="ir.ui.view">
+        <field name="name">pos.payment.method.change.wizard.form</field>
+        <field name="model">pos.payment.method.change.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Change Payment Method">
+                <group>
+                    <field name="pos_order_id"/>
+                    <field name="payment_id" options="{'no_open': True}"/>
+                    <field name="amount" widget="monetary"/>
+                    <field name="currency_id" invisible="1"/>
+                    <field name="old_payment_method_id"/>
+                    <field name="new_payment_method_id" options="{'no_open': True, 'no_create': True}"/>
+                    <field name="reason" placeholder="Why is this payment method being corrected?"/>
+                </group>
+                <footer>
+                    <button name="action_apply" type="object" string="Apply" class="btn-primary"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

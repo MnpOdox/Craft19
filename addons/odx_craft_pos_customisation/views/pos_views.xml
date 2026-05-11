@@ -8,6 +8,14 @@
             <field name="model">pos.order</field>
             <field name="inherit_id" ref="point_of_sale.view_pos_pos_form"/>
             <field name="arch" type="xml">
+                <xpath expr="//header/button[@name='refund']" position="after">
+                    <button
+                        name="action_open_payment_method_change_wizard"
+                        type="object"
+                        string="Change Payment Method"
+                        groups="point_of_sale.group_pos_manager"
+                        invisible="state != 'paid' or account_move or session_id.state in ['closing_control', 'closed']"/>
+                </xpath>
                 <xpath expr="//group[@name='order_fields']" position="after">
                     <group>
                         <group>
