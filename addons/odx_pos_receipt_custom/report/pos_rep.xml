@@ -78,7 +78,7 @@
                             <tr t-foreach="o.lines" t-as="line">
                                 <td>
                                     <span t-field="line.full_product_name"/><br/>
-                                    <span t-field="line.note"/>
+                                    <span t-if="line.receipt_note_text" t-esc="line.receipt_note_text"/>
                                 </td>
                                 <td>
                                     <span t-field="line.qty"/>
@@ -161,7 +161,6 @@
 
         </template>
 </odoo>
-
 
 
 
