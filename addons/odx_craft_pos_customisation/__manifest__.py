@@ -25,10 +25,11 @@
     'author': "OdoxSofthub",
     'website': "http://www.odoxsofthub.com",
     'description': """ """,
-    'depends': ['base','sale_stock', 'stock', 'delivery', 'account', 'sale_margin','point_of_sale','send_sms',
+    'depends': ['base','sale_stock', 'stock', 'delivery', 'account', 'sale_margin','point_of_sale','send_sms', 'l10n_in',
                 ],
     'data': [
         'security/ir.model.access.csv',
+        'views/product_hsn_view.xml',
         'views/res_partner_view.xml',
         'views/res_users_view.xml',
         'views/pos_views.xml',
