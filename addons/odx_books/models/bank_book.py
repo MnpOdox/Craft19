@@ -141,7 +141,7 @@ class BankbookLines(models.Model):
             'date': self.date,
             'description': self.description,
             'head_id': self.head_id.id,
-            'amount': self.amount,
+            'amount': abs(self.amount or 0.0),
             'company_id': self.company_id.id,
         }
 
@@ -176,4 +176,3 @@ class BankbookLines(models.Model):
         if linked_expenses:
             linked_expenses.sudo().unlink()
         return res
-
