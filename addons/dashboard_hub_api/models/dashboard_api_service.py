@@ -212,15 +212,11 @@ class DashboardAPIService:
             purchases["charts"][0],
             expenses["charts"][0],
         ]
-        tables = [
-            sales["tables"][0],
-            finance["tables"][0],
-        ]
         return {
             "title": "Overview",
             "kpis": kpis,
             "charts": charts,
-            "tables": tables,
+            "tables": [],
             "summary": {
                 "sales_amount": sales["summary"]["sales_amount"],
                 "purchase_amount": purchases["summary"]["purchase_amount"],
@@ -243,6 +239,12 @@ class DashboardAPIService:
         order_count = len(orders)
         items_sold = sum(order_lines.mapped("qty")) if orders else 0.0
         avg_bill = sales_amount / order_count if order_count else 0.0
+        online_orders = orders.filtered("online_order")
+        walking_orders = orders - online_orders
+        online_sales_amount = sum(online_orders.mapped("amount_total"))
+        walking_sales_amount = sum(walking_orders.mapped("amount_total"))
+        online_order_count = len(online_orders)
+        walking_order_count = len(walking_orders)
 
         trend = defaultdict(float)
         for order in orders:
@@ -260,25 +262,15 @@ class DashboardAPIService:
             label = payment.payment_method_id.display_name if payment.payment_method_id else "Unknown"
             payment_split[label] += payment.amount or 0.0
 
-        recent_orders = []
-        base_url = scope["base_url"]
-        for order in orders.sorted(key=lambda record: record.date_order or datetime.min, reverse=True)[:10]:
-            recent_orders.append(
-                {
-                    "name": order.name,
-                    "date": fields.Datetime.to_datetime(order.date_order).strftime("%Y-%m-%d %H:%M"),
-                    "customer": order.partner_id.display_name or "Walk-in",
-                    "amount": round(order.amount_total or 0.0, 2),
-                    "company": order.company_id.display_name,
-                    "record_url": cls._model_url(base_url, "pos.order", order.id),
-                }
-            )
-
         return {
             "title": "Sales",
             "kpis": [
                 cls._kpi("sales_amount", "POS Sales Amount", sales_amount, "currency", currency_symbol=currency_symbol),
+                cls._kpi("online_sales_amount", "Online POS Sales", online_sales_amount, "currency", currency_symbol=currency_symbol),
+                cls._kpi("walking_sales_amount", "Walking POS Sales", walking_sales_amount, "currency", currency_symbol=currency_symbol),
                 cls._kpi("order_count", "POS Orders", order_count),
+                cls._kpi("online_order_count", "Online Orders", online_order_count),
+                cls._kpi("walking_order_count", "Walking Orders", walking_order_count),
                 cls._kpi("avg_bill", "Average Bill", avg_bill, "currency", currency_symbol=currency_symbol),
                 cls._kpi("items_sold", "Items Sold", items_sold, "decimal"),
             ],
@@ -290,37 +282,14 @@ class DashboardAPIService:
                     [{"label": label, "value": round(value, 2)} for label, value in sorted(payment_split.items(), key=lambda item: item[1], reverse=True)],
                 ),
             ],
-            "tables": [
-                cls._table(
-                    "recent_orders",
-                    "Recent POS Orders",
-                    [
-                        {"key": "name", "label": "Order"},
-                        {"key": "date", "label": "Date"},
-                        {"key": "customer", "label": "Customer"},
-                        {"key": "amount", "label": "Amount"},
-                        {"key": "company", "label": "Company"},
-                        {"key": "record_url", "label": "Open"},
-                    ],
-                    recent_orders,
-                ),
-                cls._table(
-                    "top_products",
-                    "Top Products",
-                    [
-                        {"key": "label", "label": "Product"},
-                        {"key": "qty", "label": "Qty"},
-                        {"key": "amount", "label": "Amount"},
-                    ],
-                    [
-                        {"label": label, "qty": round(values["qty"], 2), "amount": round(values["amount"], 2)}
-                        for label, values in sorted(product_sales.items(), key=lambda item: item[1]["amount"], reverse=True)[:10]
-                    ],
-                ),
-            ],
+            "tables": [],
             "summary": {
                 "sales_amount": sales_amount,
+                "online_sales_amount": online_sales_amount,
+                "walking_sales_amount": walking_sales_amount,
                 "order_count": order_count,
+                "online_order_count": online_order_count,
+                "walking_order_count": walking_order_count,
                 "avg_bill": avg_bill,
                 "items_sold": items_sold,
             },
@@ -347,20 +316,6 @@ class DashboardAPIService:
         for line in purchase_lines:
             product_totals[line.product_id.display_name or line.name] += line.price_total or line.price_subtotal or 0.0
 
-        recent_rows = []
-        base_url = scope["base_url"]
-        for order in purchase_orders.sorted(key=lambda record: record.date_order or datetime.min, reverse=True)[:10]:
-            recent_rows.append(
-                {
-                    "name": order.name,
-                    "date": fields.Datetime.to_datetime(order.date_order).strftime("%Y-%m-%d"),
-                    "vendor": order.partner_id.display_name or "",
-                    "amount": round(order.amount_total or 0.0, 2),
-                    "state": order.state,
-                    "record_url": cls._model_url(base_url, "purchase.order", order.id),
-                }
-            )
-
         return {
             "title": "Purchases",
             "kpis": [
@@ -376,30 +331,7 @@ class DashboardAPIService:
                     [{"label": label, "value": round(value, 2)} for label, value in sorted(vendor_totals.items(), key=lambda item: item[1], reverse=True)[:10]],
                 ),
             ],
-            "tables": [
-                cls._table(
-                    "recent_purchase_orders",
-                    "Recent Purchase Orders",
-                    [
-                        {"key": "name", "label": "PO"},
-                        {"key": "date", "label": "Date"},
-                        {"key": "vendor", "label": "Vendor"},
-                        {"key": "amount", "label": "Amount"},
-                        {"key": "state", "label": "State"},
-                        {"key": "record_url", "label": "Open"},
-                    ],
-                    recent_rows,
-                ),
-                cls._table(
-                    "top_purchased_products",
-                    "Top Purchased Products",
-                    [
-                        {"key": "label", "label": "Product"},
-                        {"key": "value", "label": "Amount"},
-                    ],
-                    [{"label": label, "value": round(value, 2)} for label, value in sorted(product_totals.items(), key=lambda item: item[1], reverse=True)[:10]],
-                ),
-            ],
+            "tables": [],
             "summary": {
                 "purchase_amount": purchase_amount,
                 "po_count": po_count,
@@ -448,26 +380,7 @@ class DashboardAPIService:
             "charts": [
                 cls._chart("stock_movement_trend", "Stock Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(trend.items())]),
             ],
-            "tables": [
-                cls._table(
-                    "top_moving_products",
-                    "Top Moving Products",
-                    [
-                        {"key": "label", "label": "Product"},
-                        {"key": "value", "label": "Moved Qty"},
-                    ],
-                    [{"label": label, "value": round(value, 2)} for label, value in sorted(movement_by_product.items(), key=lambda item: item[1], reverse=True)[:10]],
-                ),
-                cls._table(
-                    "stock_levels",
-                    "Current Stock Levels",
-                    [
-                        {"key": "label", "label": "Product"},
-                        {"key": "value", "label": "On Hand"},
-                    ],
-                    [{"label": label, "value": round(value, 2)} for label, value in sorted(quantity_by_product.items(), key=lambda item: item[1])[:15]],
-                ),
-            ],
+            "tables": [],
             "summary": {
                 "inventory_value": inventory_value,
                 "on_hand_qty": on_hand_qty,
@@ -501,28 +414,6 @@ class DashboardAPIService:
         for line in bank_lines:
             bank_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
 
-        recent_entries = []
-        base_url = scope["base_url"]
-        merged_lines = sorted(
-            list(cash_lines) + list(bank_lines),
-            key=lambda line: line.date or fields.Date.today(),
-            reverse=True,
-        )[:15]
-        for line in merged_lines:
-            model_name = line._name
-            book_name = line.name_id.display_name if line.name_id else ""
-            recent_entries.append(
-                {
-                    "date": (line.date or fields.Date.today()).strftime("%Y-%m-%d"),
-                    "book": book_name,
-                    "head": line.head_id.display_name or "",
-                    "description": line.description or "",
-                    "amount": round(line.amount or 0.0, 2),
-                    "company": line.company_id.display_name,
-                    "record_url": cls._model_url(base_url, model_name, line.id),
-                }
-            )
-
         return {
             "title": "Finance",
             "kpis": [
@@ -539,22 +430,7 @@ class DashboardAPIService:
                 cls._chart("cash_trend", "Cash Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(cash_trend.items())]),
                 cls._chart("bank_trend", "Bank Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(bank_trend.items())]),
             ],
-            "tables": [
-                cls._table(
-                    "recent_finance_entries",
-                    "Recent Cash / Bank Entries",
-                    [
-                        {"key": "date", "label": "Date"},
-                        {"key": "book", "label": "Book"},
-                        {"key": "head", "label": "Head"},
-                        {"key": "description", "label": "Description"},
-                        {"key": "amount", "label": "Amount"},
-                        {"key": "company", "label": "Company"},
-                        {"key": "record_url", "label": "Open"},
-                    ],
-                    recent_entries,
-                ),
-            ],
+            "tables": [],
             "summary": {
                 "cash_current_balance": cash_current,
                 "bank_current_balance": bank_current,
@@ -574,18 +450,6 @@ class DashboardAPIService:
         for expense in expenses:
             trend[(expense.date or fields.Date.today()).strftime("%Y-%m-%d")] += expense.amount or 0.0
             heads[expense.head_id.display_name or "Unknown"] += expense.amount or 0.0
-        base_url = scope["base_url"]
-        recent_rows = [
-            {
-                "date": (expense.date or fields.Date.today()).strftime("%Y-%m-%d"),
-                "head": expense.head_id.display_name or "",
-                "description": expense.description or "",
-                "amount": round(expense.amount or 0.0, 2),
-                "company": expense.company_id.display_name,
-                "record_url": cls._model_url(base_url, "expense.book", expense.id),
-            }
-            for expense in expenses.sorted(key=lambda record: record.date or fields.Date.today(), reverse=True)[:15]
-        ]
         return {
             "title": "Expenses",
             "kpis": [
@@ -600,21 +464,7 @@ class DashboardAPIService:
                     [{"label": label, "value": round(value, 2)} for label, value in sorted(heads.items(), key=lambda item: item[1], reverse=True)[:10]],
                 ),
             ],
-            "tables": [
-                cls._table(
-                    "recent_expenses",
-                    "Recent Expenses",
-                    [
-                        {"key": "date", "label": "Date"},
-                        {"key": "head", "label": "Head"},
-                        {"key": "description", "label": "Description"},
-                        {"key": "amount", "label": "Amount"},
-                        {"key": "company", "label": "Company"},
-                        {"key": "record_url", "label": "Open"},
-                    ],
-                    recent_rows,
-                ),
-            ],
+            "tables": [],
             "summary": {
                 "expense_total": expense_total,
                 "expense_count": expense_count,

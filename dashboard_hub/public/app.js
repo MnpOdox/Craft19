@@ -163,6 +163,7 @@ function renderCharts(charts) {
 
 function renderTables(tables) {
   tableGrid.innerHTML = "";
+  tableGrid.classList.toggle("hidden", !(tables || []).length);
   (tables || []).forEach((table) => {
     const panel = document.createElement("article");
     panel.className = "card panel table-panel";
