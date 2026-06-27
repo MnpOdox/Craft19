@@ -12,26 +12,26 @@ class DashboardHubAPIController(http.Controller):
             return {"ok": False, "error": error}
         return DashboardAPIService.build_page(env, page, payload or {})
 
-    @http.route("/api/dashboard/overview", auth="none", type="json", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/overview", auth="none", type="json", csrf=False, methods=["POST"])
     def dashboard_overview(self, **payload):
         return self._dispatch("overview", payload)
 
-    @http.route("/api/dashboard/sales", auth="none", type="json", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/sales", auth="none", type="json", csrf=False, methods=["POST"])
     def dashboard_sales(self, **payload):
         return self._dispatch("sales", payload)
 
-    @http.route("/api/dashboard/purchases", auth="none", type="json", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/purchases", auth="none", type="json", csrf=False, methods=["POST"])
     def dashboard_purchases(self, **payload):
         return self._dispatch("purchases", payload)
 
-    @http.route("/api/dashboard/stock", auth="none", type="json", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/stock", auth="none", type="json", csrf=False, methods=["POST"])
     def dashboard_stock(self, **payload):
         return self._dispatch("stock", payload)
 
-    @http.route("/api/dashboard/finance", auth="none", type="json", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/finance", auth="none", type="json", csrf=False, methods=["POST"])
     def dashboard_finance(self, **payload):
         return self._dispatch("finance", payload)
 
-    @http.route("/api/dashboard/expenses", auth="none", type="json", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/expenses", auth="none", type="json", csrf=False, methods=["POST"])
     def dashboard_expenses(self, **payload):
         return self._dispatch("expenses", payload)

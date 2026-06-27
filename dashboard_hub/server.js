@@ -133,7 +133,8 @@ async function fetchDashboardPage(page, region, company, query, forceRefresh = f
     return cache.get(cacheKey).value;
   }
 
-  const response = await fetch(`${source.baseUrl}/api/dashboard/${page}`, {
+  const dashboardApiBase = source.dashboardApiBase || "/dashboard_hub_api";
+  const response = await fetch(`${source.baseUrl}${dashboardApiBase}/${page}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
