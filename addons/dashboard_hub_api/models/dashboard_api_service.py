@@ -168,22 +168,24 @@ class DashboardAPIService:
         current = float(current_value or 0.0)
         previous = float(previous_value or 0.0)
         delta = current - previous
+        rounded_delta = round(delta, 2)
         if previous:
-            pct = (delta / previous) * 100.0
+            pct = (rounded_delta / previous) * 100.0
         elif current:
             pct = 100.0
         else:
             pct = 0.0
-        if delta > 0:
+        rounded_pct = round(pct, 2)
+        if rounded_delta > 0:
             direction = "up"
-        elif delta < 0:
+        elif rounded_delta < 0:
             direction = "down"
         else:
             direction = "flat"
         return {
             "previous_value": round(previous, 2),
-            "delta_value": round(delta, 2),
-            "delta_pct": round(pct, 2),
+            "delta_value": rounded_delta,
+            "delta_pct": rounded_pct,
             "direction": direction,
             "label": label,
         }
