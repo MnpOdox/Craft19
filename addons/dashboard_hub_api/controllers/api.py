@@ -23,26 +23,26 @@ class DashboardHubAPIController(http.Controller):
             status=status,
         )
 
-    @http.route("/dashboard_hub_api/overview", auth="none", type="http", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/overview", auth="public", type="http", csrf=False, methods=["POST"])
     def dashboard_overview(self, **kwargs):
         return self._dispatch("overview")
 
-    @http.route("/dashboard_hub_api/sales", auth="none", type="http", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/sales", auth="public", type="http", csrf=False, methods=["POST"])
     def dashboard_sales(self, **kwargs):
         return self._dispatch("sales")
 
-    @http.route("/dashboard_hub_api/purchases", auth="none", type="http", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/purchases", auth="public", type="http", csrf=False, methods=["POST"])
     def dashboard_purchases(self, **kwargs):
         return self._dispatch("purchases")
 
-    @http.route("/dashboard_hub_api/stock", auth="none", type="http", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/stock", auth="public", type="http", csrf=False, methods=["POST"])
     def dashboard_stock(self, **kwargs):
         return self._dispatch("stock")
 
-    @http.route("/dashboard_hub_api/finance", auth="none", type="http", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/finance", auth="public", type="http", csrf=False, methods=["POST"])
     def dashboard_finance(self, **kwargs):
         return self._dispatch("finance")
 
-    @http.route("/dashboard_hub_api/expenses", auth="none", type="http", csrf=False, methods=["POST"])
+    @http.route("/dashboard_hub_api/expenses", auth="public", type="http", csrf=False, methods=["POST"])
     def dashboard_expenses(self, **kwargs):
         return self._dispatch("expenses")
