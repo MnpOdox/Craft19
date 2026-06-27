@@ -11,6 +11,7 @@ class Pos(models.Model):
     tracking_number = fields.Char(string = "Tracking Number", readonly=True)
 
     online_order = fields.Boolean(string = 'Online order')
+    crm_sale = fields.Boolean(string="CRM Sale")
 
     @api.model
     def order_online(self,check_value,name):
@@ -24,7 +25,7 @@ class Pos(models.Model):
         # Keep that behavior to avoid dropping required core fields.
         if not result:
             return result
-        for name in ("online_order", "courier_id", "tracking_number"):
+        for name in ("online_order", "crm_sale", "courier_id", "tracking_number"):
             if name not in result:
                 result.append(name)
         return result

@@ -24,6 +24,7 @@
                         </group>
                         <group>
                             <field name="online_order"/>
+                            <field name="crm_sale"/>
                         </group>
                     </group>
                 </xpath>
