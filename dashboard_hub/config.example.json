@@ -1,0 +1,44 @@
+{
+  "sessionSecret": "change-me-session-secret",
+  "cacheTtlMs": 300000,
+  "users": [
+    {
+      "username": "admin",
+      "password": "admin123",
+      "regions": ["india", "uae"]
+    }
+  ],
+  "sources": {
+    "india": {
+      "name": "India",
+      "baseUrl": "http://localhost:8069",
+      "apiKeyHeader": "X-DASHBOARD-KEY",
+      "apiKey": "change-me",
+      "companies": [
+        {
+          "key": "craft",
+          "label": "Craft and Creation",
+          "companyId": 1
+        },
+        {
+          "key": "lebeauty",
+          "label": "Lebeauty",
+          "companyId": 2
+        }
+      ]
+    },
+    "uae": {
+      "name": "UAE",
+      "baseUrl": "http://uae-odoo-host:8069",
+      "apiKeyHeader": "X-DASHBOARD-KEY",
+      "apiKey": "change-me",
+      "companies": [
+        {
+          "key": "uae",
+          "label": "Craft and Creation UAE",
+          "companyId": 1
+        }
+      ]
+    }
+  }
+}

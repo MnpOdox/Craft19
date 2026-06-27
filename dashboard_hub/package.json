@@ -1,0 +1,9 @@
+{
+  "name": "dashboard-hub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone multi-region dashboard hub for Odoo reporting.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Hub</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="login-shell" class="shell shell-center">
+    <form id="login-form" class="card login-card">
+      <h1>Dashboard Hub</h1>
+      <p class="muted">Multi-region reporting for India and UAE operations.</p>
+      <label>
+        <span>Username</span>
+        <input type="text" name="username" required autocomplete="username">
+      </label>
+      <label>
+        <span>Password</span>
+        <input type="password" name="password" required autocomplete="current-password">
+      </label>
+      <button type="submit">Sign In</button>
+      <p id="login-error" class="error hidden"></p>
+    </form>
+  </div>
+
+  <div id="app-shell" class="shell hidden">
+    <aside class="sidebar">
+      <div>
+        <h1>Dashboard Hub</h1>
+        <p id="session-user" class="muted"></p>
+      </div>
+      <nav id="page-nav" class="nav-list"></nav>
+      <button id="logout-btn" class="ghost-btn">Logout</button>
+    </aside>
+    <main class="main">
+      <header class="toolbar">
+        <div class="toolbar-row">
+          <div>
+            <h2 id="page-title">Overview</h2>
+            <p id="page-subtitle" class="muted"></p>
+          </div>
+          <button id="refresh-btn" class="ghost-btn">Refresh</button>
+        </div>
+        <div class="filters">
+          <label>
+            <span>Region</span>
+            <select id="region-select"></select>
+          </label>
+          <label>
+            <span>Company</span>
+            <select id="company-select"></select>
+          </label>
+          <label>
+            <span>Period</span>
+            <select id="period-select">
+              <option value="today">Today</option>
+              <option value="this_week">This Week</option>
+              <option value="this_month" selected>This Month</option>
+              <option value="this_year">This Year</option>
+              <option value="all">All Time</option>
+              <option value="custom">Custom</option>
+            </select>
+          </label>
+          <label class="date-filter hidden" id="date-from-wrap">
+            <span>Date From</span>
+            <input type="date" id="date-from">
+          </label>
+          <label class="date-filter hidden" id="date-to-wrap">
+            <span>Date To</span>
+            <input type="date" id="date-to">
+          </label>
+        </div>
+      </header>
+      <section id="status-banner" class="status hidden"></section>
+      <section id="kpi-grid" class="kpi-grid"></section>
+      <section id="chart-grid" class="panel-grid"></section>
+      <section id="table-grid" class="panel-grid"></section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

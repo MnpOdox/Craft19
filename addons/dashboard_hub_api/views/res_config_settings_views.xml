@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_res_config_settings_dashboard_hub_api" model="ir.ui.view">
+        <field name="name">res.config.settings.dashboard.hub.api</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Dashboard Hub" name="dashboard_hub_api" groups="base.group_system">
+                    <block title="Dashboard Hub API">
+                        <setting string="Enable Dashboard Hub API" help="Expose the reporting endpoints used by the standalone dashboard application.">
+                            <field name="dashboard_hub_api_enabled"/>
+                        </setting>
+                        <setting string="Dashboard Hub API Key" help="Machine credential used by the standalone dashboard app.">
+                            <field name="dashboard_hub_api_key" password="True"/>
+                        </setting>
+                        <setting string="API Key Header">
+                            <field name="dashboard_hub_api_key_header"/>
+                        </setting>
+                        <setting string="Dashboard Source Name" help="Human-readable server/source name used in dashboard drill-down metadata.">
+                            <field name="dashboard_hub_api_source_name"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>
