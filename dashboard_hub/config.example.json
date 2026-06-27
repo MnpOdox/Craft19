@@ -13,6 +13,7 @@
       "name": "India",
       "baseUrl": "http://localhost:8069",
       "dashboardApiBase": "/dashboard_hub_api",
+      "dbName": "craft19",
       "apiKeyHeader": "X-DASHBOARD-KEY",
       "apiKey": "change-me",
       "companies": [
@@ -32,6 +33,7 @@
       "name": "UAE",
       "baseUrl": "http://uae-odoo-host:8069",
       "dashboardApiBase": "/dashboard_hub_api",
+      "dbName": "craft19",
       "apiKeyHeader": "X-DASHBOARD-KEY",
       "apiKey": "change-me",
       "companies": [

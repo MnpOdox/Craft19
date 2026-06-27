@@ -134,7 +134,11 @@ async function fetchDashboardPage(page, region, company, query, forceRefresh = f
   }
 
   const dashboardApiBase = source.dashboardApiBase || "/dashboard_hub_api";
-  const response = await fetch(`${source.baseUrl}${dashboardApiBase}/${page}`, {
+  const upstreamUrl = new URL(`${source.baseUrl}${dashboardApiBase}/${page}`);
+  if (source.dbName) {
+    upstreamUrl.searchParams.set("db", source.dbName);
+  }
+  const response = await fetch(upstreamUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
