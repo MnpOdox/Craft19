@@ -186,7 +186,7 @@ class DashboardAPIService:
         handler = handlers.get(page)
         if not handler:
             return {"ok": False, "error": f"Unsupported dashboard page: {page}"}
-        data = handler(env.sudo(), companies, scope, date_from, date_to)
+        data = handler(env, companies, scope, date_from, date_to)
         data.update({"ok": True, "page": page, "scope": scope})
         return data
 
