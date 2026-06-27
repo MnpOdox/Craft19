@@ -69,6 +69,7 @@ body {
   padding: 28px;
   display: grid;
   gap: 18px;
+  min-width: 0;
 }
 
 #app-shell {
@@ -175,7 +176,7 @@ button {
 
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 14px;
 }
 
@@ -183,6 +184,8 @@ button {
   min-height: 140px;
   display: grid;
   align-content: space-between;
+  gap: 18px;
+  overflow: hidden;
   background:
     linear-gradient(160deg, rgba(11, 110, 79, 0.08), rgba(203, 124, 42, 0.08)),
     rgba(255, 250, 242, 0.95);
@@ -194,8 +197,13 @@ button {
 }
 
 .kpi-value {
-  font-size: 2rem;
+  font-size: clamp(1.7rem, 1.15rem + 1.1vw, 2.45rem);
   font-weight: 700;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
 }
 
 .panel-grid {
@@ -288,5 +296,9 @@ a {
 
   .toolbar-row {
     flex-direction: column;
+  }
+
+  .kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   }
 }
