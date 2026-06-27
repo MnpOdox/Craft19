@@ -14,7 +14,10 @@ class DashboardHubAPIController(http.Controller):
             status = 401
             body = {"ok": False, "error": error}
         else:
-            payload = request.get_json_data(silent=True) or {}
+            try:
+                payload = request.get_json_data() or {}
+            except Exception:
+                payload = {}
             status = 200
             body = DashboardAPIService.build_page(env, page, payload)
         return request.make_response(
