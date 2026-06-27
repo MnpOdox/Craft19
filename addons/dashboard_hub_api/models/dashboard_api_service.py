@@ -1,7 +1,7 @@
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 
-from odoo import fields
+from odoo import api, fields
 from odoo.http import request
 
 
@@ -173,6 +173,7 @@ class DashboardAPIService:
 
     @classmethod
     def build_page(cls, env, page, payload):
+        env = api.Environment(env.cr, 1, env.context)
         date_from, date_to, period = cls._resolve_period(payload)
         scope, companies = cls._scope(env, payload, date_from, date_to, period)
         handlers = {
