@@ -280,6 +280,7 @@ class DashboardAPIService:
                 kpi["comparison"] = cls._comparison_meta(kpi["value"], comparisons.get(kpi["key"]), previous_scope_label)
         charts = [
             sales["charts"][0],
+            sales["charts"][2],
             purchases["charts"][0],
             expenses["charts"][0],
         ]
@@ -351,6 +352,11 @@ class DashboardAPIService:
                     "payment_split",
                     "Payment Method Split",
                     [{"label": label, "value": round(value, 2)} for label, value in sorted(payment_split.items(), key=lambda item: item[1], reverse=True)],
+                ),
+                cls._chart(
+                    "top_selling_products",
+                    "Top Selling Products",
+                    [{"label": label, "value": round(values["qty"], 2)} for label, values in sorted(product_sales.items(), key=lambda item: item[1]["qty"], reverse=True)[:10]],
                 ),
             ],
             "tables": [],
