@@ -89,6 +89,29 @@ class DashboardAPIService:
         return start, end, "this_month"
 
     @classmethod
+    def _previous_period(cls, date_from, date_to, period):
+        if not date_from or not date_to or period == "all":
+            return None, None
+        if period == "today":
+            previous_day = date_from - timedelta(days=1)
+            return previous_day, previous_day
+        if period == "this_week":
+            previous_start = date_from - timedelta(days=7)
+            return previous_start, previous_start + timedelta(days=6)
+        if period == "this_month":
+            previous_end = date_from - timedelta(days=1)
+            previous_start = previous_end.replace(day=1)
+            return previous_start, previous_end
+        if period == "this_year":
+            previous_start = date(date_from.year - 1, 1, 1)
+            previous_end = date(date_from.year - 1, 12, 31)
+            return previous_start, previous_end
+        day_span = (date_to - date_from).days + 1
+        previous_end = date_from - timedelta(days=1)
+        previous_start = previous_end - timedelta(days=day_span - 1)
+        return previous_start, previous_end
+
+    @classmethod
     def _date_domain(cls, field_name, date_from, date_to):
         domain = []
         if date_from:
@@ -138,6 +161,31 @@ class DashboardAPIService:
             "format": fmt,
             "suffix": suffix,
             "currency_symbol": currency_symbol,
+        }
+
+    @classmethod
+    def _comparison_meta(cls, current_value, previous_value, label):
+        current = float(current_value or 0.0)
+        previous = float(previous_value or 0.0)
+        delta = current - previous
+        if previous:
+            pct = (delta / previous) * 100.0
+        elif current:
+            pct = 100.0
+        else:
+            pct = 0.0
+        if delta > 0:
+            direction = "up"
+        elif delta < 0:
+            direction = "down"
+        else:
+            direction = "flat"
+        return {
+            "previous_value": round(previous, 2),
+            "delta_value": round(delta, 2),
+            "delta_pct": round(pct, 2),
+            "direction": direction,
+            "label": label,
         }
 
     @classmethod
@@ -199,6 +247,16 @@ class DashboardAPIService:
         finance = cls._build_finance(env, companies, scope, date_from, date_to)
         expenses = cls._build_expenses(env, companies, scope, date_from, date_to)
         currency_symbol = cls._currency_symbol(companies)
+        previous_date_from, previous_date_to = cls._previous_period(date_from, date_to, scope.get("period"))
+        previous_scope_label = None
+        previous_sales = previous_purchases = previous_stock = previous_finance = previous_expenses = None
+        if previous_date_from and previous_date_to:
+            previous_scope_label = f"{previous_date_from.isoformat()} to {previous_date_to.isoformat()}"
+            previous_sales = cls._build_sales(env, companies, scope, previous_date_from, previous_date_to)
+            previous_purchases = cls._build_purchases(env, companies, scope, previous_date_from, previous_date_to)
+            previous_stock = cls._build_stock(env, companies, scope, previous_date_from, previous_date_to)
+            previous_finance = cls._build_finance(env, companies, scope, previous_date_from, previous_date_to)
+            previous_expenses = cls._build_expenses(env, companies, scope, previous_date_from, previous_date_to)
         kpis = [
             cls._kpi("pos_sales", "POS Sales", sales["summary"]["sales_amount"], "currency", currency_symbol=currency_symbol),
             cls._kpi("purchase_amount", "Purchase Amount", purchases["summary"]["purchase_amount"], "currency", currency_symbol=currency_symbol),
@@ -207,6 +265,17 @@ class DashboardAPIService:
             cls._kpi("bank_current", "Bank Current", finance["summary"]["bank_current_balance"], "currency", currency_symbol=currency_symbol),
             cls._kpi("expense_total", "Expenses", expenses["summary"]["expense_total"], "currency", currency_symbol=currency_symbol),
         ]
+        if previous_scope_label:
+            comparisons = {
+                "pos_sales": previous_sales["summary"]["sales_amount"],
+                "purchase_amount": previous_purchases["summary"]["purchase_amount"],
+                "stock_value": previous_stock["summary"]["inventory_value"],
+                "cash_current": previous_finance["summary"]["cash_current_balance"],
+                "bank_current": previous_finance["summary"]["bank_current_balance"],
+                "expense_total": previous_expenses["summary"]["expense_total"],
+            }
+            for kpi in kpis:
+                kpi["comparison"] = cls._comparison_meta(kpi["value"], comparisons.get(kpi["key"]), previous_scope_label)
         charts = [
             sales["charts"][0],
             purchases["charts"][0],

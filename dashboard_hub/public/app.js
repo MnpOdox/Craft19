@@ -49,6 +49,16 @@ function formatValue(kpi) {
   return Number(kpi.value || 0).toLocaleString();
 }
 
+function formatKpiMetaValue(value, format, currencySymbol = "") {
+  if (format === "currency") {
+    return `${currencySymbol}${Number(value || 0).toLocaleString()}`;
+  }
+  if (format === "decimal") {
+    return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  }
+  return Number(value || 0).toLocaleString();
+}
+
 function setPeriodVisibility() {
   const custom = periodSelect.value === "custom";
   document.getElementById("date-from-wrap").classList.toggle("hidden", !custom);
@@ -128,7 +138,20 @@ function renderKpis(kpis) {
   (kpis || []).forEach((kpi) => {
     const card = document.createElement("article");
     card.className = "card kpi-card";
-    card.innerHTML = `<p class="kpi-label">${kpi.label}</p><p class="kpi-value">${formatValue(kpi)}${kpi.suffix || ""}</p>`;
+    const comparison = kpi.comparison;
+    const comparisonMarkup = comparison
+      ? `
+        <div class="kpi-comparison ${comparison.direction || "flat"}">
+          <p class="kpi-comparison-pct">${comparison.delta_pct > 0 ? "+" : ""}${comparison.delta_pct}% vs previous period</p>
+          <p class="kpi-comparison-base">Prev: ${formatKpiMetaValue(comparison.previous_value, kpi.format, kpi.currency_symbol || "")} (${comparison.label})</p>
+        </div>
+      `
+      : "";
+    card.innerHTML = `
+      <p class="kpi-label">${kpi.label}</p>
+      <p class="kpi-value">${formatValue(kpi)}${kpi.suffix || ""}</p>
+      ${comparisonMarkup}
+    `;
     kpiGrid.appendChild(card);
   });
 }

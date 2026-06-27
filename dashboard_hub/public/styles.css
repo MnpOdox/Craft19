@@ -184,8 +184,8 @@ button {
   min-height: 140px;
   min-width: 0;
   display: grid;
-  align-content: space-between;
-  gap: 18px;
+  align-content: start;
+  gap: 14px;
   overflow: hidden;
   background:
     linear-gradient(160deg, rgba(11, 110, 79, 0.08), rgba(203, 124, 42, 0.08)),
@@ -205,6 +205,37 @@ button {
   word-break: break-word;
   max-width: 100%;
   font-variant-numeric: tabular-nums;
+}
+
+.kpi-comparison {
+  display: grid;
+  gap: 4px;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid rgba(229, 215, 191, 0.85);
+}
+
+.kpi-comparison-pct {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.kpi-comparison.up .kpi-comparison-pct {
+  color: var(--success);
+}
+
+.kpi-comparison.down .kpi-comparison-pct {
+  color: var(--error);
+}
+
+.kpi-comparison.flat .kpi-comparison-pct {
+  color: var(--muted);
+}
+
+.kpi-comparison-base {
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.35;
 }
 
 .panel-grid {
