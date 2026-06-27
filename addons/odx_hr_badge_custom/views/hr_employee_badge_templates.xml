@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="print_employee_badge_inherit" inherit_id="hr.print_employee_badge">
+        <xpath expr="//div[contains(@style, 'display: inline-block')]" position="attributes">
+            <attribute name="style">display: inline-block; page-break-inside: avoid; width: 243pt; height: 153pt; border: 1pt solid black; border-radius: 8pt; margin: 5pt; padding: 4pt; background: #ffffff;</attribute>
+        </xpath>
+        <xpath expr="//table[contains(@style, 'width: 100%; height: 100%; border-spacing: 4pt')]" position="replace">
+            <table style="width: 100%; height: 100%; border-spacing: 4pt; border-collapse: separate;" class="table-borderless">
+                <tr>
+                    <td style="width: 40%;">
+                        <table style="width: 100%; height: 100%; text-align: center;" class="table-borderless">
+                            <t t-if="employee.company_id.logo">
+                                <tr style="height: 38%; padding-top: 2pt; padding-bottom: 2pt;">
+                                    <td>
+                                        <img t-att-src="image_data_uri(employee.company_id.logo)" style="max-height: 56pt; max-width: 100%;" alt="Company Logo"/>
+                                    </td>
+                                </tr>
+                            </t>
+                            <tr style="height: 62%;">
+                                <td style="height: 100%; width: 100%; padding-top: 2pt; padding-bottom: 4pt;">
+                                    <img t-att-src="image_data_uri(employee.avatar_1920)" style="max-height: 92pt; max-width: 100%; border-radius: 6pt;" alt="Employee Image"/>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td style="width: 60%; height: 100%; vertical-align: top;">
+                        <table style="width: 100%; height: 100%; text-align: center;" class="table-borderless">
+                            <tr>
+                                <th style="padding-top: 6pt;">
+                                    <span style="font-size: 15pt; line-height: 1.1;" t-out="employee.name" data-oe-demo="Marc Demo"/>
+                                </th>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <span style="font-size: 9pt; color: #444;" t-out="employee.job_id.name" data-oe-demo="Software Developer"/>
+                                </td>
+                            </tr>
+                            <tr t-if="employee.company_id.phone">
+                                <td>
+                                    <span style="font-size: 8pt; color: #444;">Phone: </span>
+                                    <span style="font-size: 8pt; color: #444;" t-out="employee.company_id.phone"/>
+                                </td>
+                            </tr>
+                            <tr style="height: 100%;">
+                                <td style="vertical-align: bottom; padding-bottom: 2pt;">
+                                    <table style="width: 100%; border-collapse: collapse;" class="table-borderless">
+                                        <tr>
+                                            <td style="width: 72%; vertical-align: bottom;">
+                                                <div t-if="employee.barcode" t-field="employee.barcode" t-options="{'widget': 'barcode', 'width': 600, 'height': 120, 'img_style': 'max-width:100%;', 'img_align': 'center'}" data-oe-demo="12345678901"/>
+                                            </td>
+                                            <td t-if="employee.company_id.badge_instagram_qr" style="width: 28%; text-align: center; vertical-align: bottom; padding-left: 4pt;">
+                                                <img t-att-src="image_data_uri(employee.company_id.badge_instagram_qr)" style="max-height: 52pt; max-width: 100%;" alt="Instagram QR"/>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </xpath>
+    </template>
+</odoo>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_res_config_settings_badge_custom" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.badge.custom</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Employees" data-string="Employees" name="odx_hr_badge_custom" groups="hr.group_hr_manager">
+                    <block title="Employee Badge" name="employee_badge_settings">
+                        <setting string="Instagram QR Code" help="Upload the Instagram QR image to show on employee badges.">
+                            <field name="badge_instagram_qr" filename="badge_instagram_qr_name" class="w-100"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>
