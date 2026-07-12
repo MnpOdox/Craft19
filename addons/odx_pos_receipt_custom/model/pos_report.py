@@ -1,4 +1,5 @@
-from odoo import models
+from odoo import _, models
+from odoo.exceptions import UserError
 
 class PosReport(models.Model):
     _inherit = 'pos.order'
@@ -12,9 +13,27 @@ class PosReport(models.Model):
         return "Walking Customer"
 
     def print_order(self):
-            data = {}
-
-            return self.env.ref('odx_pos_receipt_custom.pos_order_receipt').with_context(landscape=False).report_action(self, data=data, config=False)
+        self.ensure_one()
+        data = {}
+        report_action = self.env["ir.actions.report"].search(
+            [
+                ("report_name", "=", "odx_pos_receipt_custom.pos_order_template"),
+                ("model", "=", "pos.order"),
+            ],
+            limit=1,
+        )
+        if not report_action:
+            report_action = self.env.ref(
+                "odx_pos_receipt_custom.pos_order_receipt",
+                raise_if_not_found=False,
+            )
+        if not report_action:
+            raise UserError(
+                _("POS receipt report action is missing. Please upgrade the POS Custom module.")
+            )
+        return report_action.with_context(landscape=False).report_action(
+            self, data=data, config=False
+        )
 
 # class Poscontact(models.Model):
 #     _inherit = 'res.partner'
