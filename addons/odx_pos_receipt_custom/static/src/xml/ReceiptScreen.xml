@@ -66,7 +66,7 @@
                     </t>
                 </div>
             </div>
-            <t t-set="saleTypeLabel" t-value="props.data?.sale_type_label || (order.getSaleTypeLabel ? order.getSaleTypeLabel() : '')"/>
+            <t t-set="saleTypeLabel" t-value="(props.data and props.data.sale_type_label) or (order.getSaleTypeLabel and order.getSaleTypeLabel()) or ''"/>
             <div class="sale-type mt-1 fw-bold" t-if="saleTypeLabel">
                 <span>Sales Type: </span>
                 <span t-esc="saleTypeLabel"/>
