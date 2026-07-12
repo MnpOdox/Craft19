@@ -66,6 +66,10 @@
                     </t>
                 </div>
             </div>
+            <div class="sale-type mt-1 fw-bold" t-if="props.data.sale_type_label">
+                <span>Sales Type: </span>
+                <span t-esc="props.data.sale_type_label"/>
+            </div>
         </xpath>
     </t>
 </templates>

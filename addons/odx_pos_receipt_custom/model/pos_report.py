@@ -1,7 +1,16 @@
-from odoo import fields, models,api
+from odoo import models
 
 class PosReport(models.Model):
     _inherit = 'pos.order'
+
+    def _get_sale_type_label(self):
+        self.ensure_one()
+        if getattr(self, "crm_sale", False):
+            return "CRM Sale"
+        if getattr(self, "online_order", False):
+            return "Online Sale"
+        return "Walking Customer"
+
     def print_order(self):
             data = {}
 

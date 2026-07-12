@@ -53,6 +53,10 @@
                                 </div>
                                 <hr style="border-top:1px dashed black;"/>
                                 <div>served by <t t-esc="o.user_id.name" /></div><br/>
+                                <div>
+                                    <strong>Sales Type:</strong>
+                                    <t t-esc="o._get_sale_type_label()"/>
+                                </div><br/>
 
 
 
@@ -161,7 +165,6 @@
 
         </template>
 </odoo>
-
 
 
 

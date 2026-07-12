@@ -1,4 +1,5 @@
 import { PosOrderline } from "@point_of_sale/app/models/pos_order_line";
+import { PosOrder } from "@point_of_sale/app/models/pos_order";
 import { patch } from "@web/core/utils/patch";
 
 function normalizeReceiptNote(note) {
@@ -33,5 +34,23 @@ function normalizeReceiptNote(note) {
 patch(PosOrderline.prototype, {
     getReceiptNote() {
         return normalizeReceiptNote(this.note);
+    },
+});
+
+patch(PosOrder.prototype, {
+    getSaleTypeLabel() {
+        if (this.crm_sale) {
+            return "CRM Sale";
+        }
+        if (this.online_order) {
+            return "Online Sale";
+        }
+        return "Walking Customer";
+    },
+
+    export_for_printing(baseUrl, headerData) {
+        const data = super.export_for_printing(baseUrl, headerData);
+        data.sale_type_label = this.getSaleTypeLabel();
+        return data;
     },
 });
