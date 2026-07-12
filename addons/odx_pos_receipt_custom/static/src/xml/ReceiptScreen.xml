@@ -66,9 +66,10 @@
                     </t>
                 </div>
             </div>
-            <div class="sale-type mt-1 fw-bold" t-if="props.data.sale_type_label">
+            <t t-set="saleTypeLabel" t-value="props.data?.sale_type_label || (order.getSaleTypeLabel ? order.getSaleTypeLabel() : '')"/>
+            <div class="sale-type mt-1 fw-bold" t-if="saleTypeLabel">
                 <span>Sales Type: </span>
-                <span t-esc="props.data.sale_type_label"/>
+                <span t-esc="saleTypeLabel"/>
             </div>
         </xpath>
     </t>
