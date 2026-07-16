@@ -312,10 +312,13 @@ class DashboardAPIService:
         items_sold = sum(order_lines.mapped("qty")) if orders else 0.0
         avg_bill = sales_amount / order_count if order_count else 0.0
         online_orders = orders.filtered("online_order")
-        walking_orders = orders - online_orders
+        crm_orders = orders.filtered("crm_sale")
+        walking_orders = orders.filtered(lambda order: not order.online_order and not order.crm_sale)
         online_sales_amount = sum(online_orders.mapped("amount_total"))
+        crm_sales_amount = sum(crm_orders.mapped("amount_total"))
         walking_sales_amount = sum(walking_orders.mapped("amount_total"))
         online_order_count = len(online_orders)
+        crm_order_count = len(crm_orders)
         walking_order_count = len(walking_orders)
 
         trend = defaultdict(float)
@@ -339,10 +342,12 @@ class DashboardAPIService:
             "kpis": [
                 cls._kpi("sales_amount", "POS Sales Amount", sales_amount, "currency", currency_symbol=currency_symbol),
                 cls._kpi("online_sales_amount", "Online POS Sales", online_sales_amount, "currency", currency_symbol=currency_symbol),
-                cls._kpi("walking_sales_amount", "Walking POS Sales", walking_sales_amount, "currency", currency_symbol=currency_symbol),
+                cls._kpi("crm_sales_amount", "CRM POS Sales", crm_sales_amount, "currency", currency_symbol=currency_symbol),
+                cls._kpi("walking_sales_amount", "Walking Customer Sales", walking_sales_amount, "currency", currency_symbol=currency_symbol),
                 cls._kpi("order_count", "POS Orders", order_count),
                 cls._kpi("online_order_count", "Online Orders", online_order_count),
-                cls._kpi("walking_order_count", "Walking Orders", walking_order_count),
+                cls._kpi("crm_order_count", "CRM Orders", crm_order_count),
+                cls._kpi("walking_order_count", "Walking Customer Orders", walking_order_count),
                 cls._kpi("avg_bill", "Average Bill", avg_bill, "currency", currency_symbol=currency_symbol),
                 cls._kpi("items_sold", "Items Sold", items_sold, "decimal"),
             ],
@@ -363,9 +368,11 @@ class DashboardAPIService:
             "summary": {
                 "sales_amount": sales_amount,
                 "online_sales_amount": online_sales_amount,
+                "crm_sales_amount": crm_sales_amount,
                 "walking_sales_amount": walking_sales_amount,
                 "order_count": order_count,
                 "online_order_count": online_order_count,
+                "crm_order_count": crm_order_count,
                 "walking_order_count": walking_order_count,
                 "avg_bill": avg_bill,
                 "items_sold": items_sold,
