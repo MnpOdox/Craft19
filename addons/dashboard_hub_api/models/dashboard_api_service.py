@@ -222,6 +222,17 @@ class DashboardAPIService:
         return [{"label": label, "value": round(value, 2)} for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)]
 
     @classmethod
+    def _book_period_domain(cls, date_from, date_to):
+        if not date_from and not date_to:
+            return []
+        domain = []
+        if date_to:
+            domain.append(("start_date", "<=", date_to))
+        if date_from:
+            domain.append(("end_date", ">=", date_from))
+        return domain
+
+    @classmethod
     def build_page(cls, env, page, payload):
         env = api.Environment(env.cr, 1, env.context)
         date_from, date_to, period = cls._resolve_period(payload)
@@ -476,8 +487,9 @@ class DashboardAPIService:
 
     @classmethod
     def _build_finance(cls, env, companies, scope, date_from, date_to):
-        cash_books = env["cash.book"].search([("company_id", "in", companies.ids)])
-        bank_books = env["bank.book"].search([("company_id", "in", companies.ids)])
+        book_period_domain = cls._book_period_domain(date_from, date_to)
+        cash_books = env["cash.book"].search([("company_id", "in", companies.ids)] + book_period_domain)
+        bank_books = env["bank.book"].search([("company_id", "in", companies.ids)] + book_period_domain)
         cash_lines = env["cash.book.line"].search(cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids)])
         bank_lines = env["bank.book.line"].search(cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids)])
         currency_symbol = cls._currency_symbol(companies)
