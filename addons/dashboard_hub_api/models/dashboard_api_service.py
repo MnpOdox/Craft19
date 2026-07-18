@@ -239,6 +239,8 @@ class DashboardAPIService:
         bank_books = env["bank.book"].search([("company_id", "in", companies.ids)] + book_period_domain)
         cash_lines = env["cash.book.line"].search(cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids)])
         bank_lines = env["bank.book.line"].search(cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids)])
+        sales_heads = env["book.head"].search([("cash", "=", True), ("head_name", "ilike", "sales")])
+        cash_sales_lines = cash_lines.filtered(lambda line: line.head_id.id in sales_heads.ids)
 
         cash_open = sum(cash_books.mapped("open_balance"))
         cash_current = sum(cash_books.mapped("cur_balance"))
@@ -246,12 +248,16 @@ class DashboardAPIService:
         bank_current = sum(bank_books.mapped("cur_balance"))
         cash_in = sum(line.amount for line in cash_lines if (line.amount or 0.0) > 0)
         cash_out = abs(sum(line.amount for line in cash_lines if (line.amount or 0.0) < 0))
+        cash_sales_book = sum(line.amount or 0.0 for line in cash_sales_lines)
         bank_in = sum(line.amount for line in bank_lines if (line.amount or 0.0) > 0)
         bank_out = abs(sum(line.amount for line in bank_lines if (line.amount or 0.0) < 0))
 
         cash_trend = defaultdict(float)
         for line in cash_lines:
             cash_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
+        cash_sales_trend = defaultdict(float)
+        for line in cash_sales_lines:
+            cash_sales_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
         bank_trend = defaultdict(float)
         for line in bank_lines:
             bank_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
@@ -270,24 +276,43 @@ class DashboardAPIService:
             label = fields.Datetime.to_datetime(order_date).strftime("%Y-%m-%d") if order_date else fields.Date.today().strftime("%Y-%m-%d")
             pos_cash_trend[label] += amount
 
+        cash_match_rows = []
+        for label in sorted(set(list(pos_cash_trend.keys()) + list(cash_sales_trend.keys()))):
+            pos_amount = round(pos_cash_trend.get(label, 0.0), 2)
+            cashbook_amount = round(cash_sales_trend.get(label, 0.0), 2)
+            diff = round(cashbook_amount - pos_amount, 2)
+            cash_match_rows.append(
+                {
+                    "date": label,
+                    "pos_cash": pos_amount,
+                    "cashbook_sales": cashbook_amount,
+                    "difference": diff,
+                    "status": "Matched" if diff == 0 else "Not Matching",
+                }
+            )
+
         return {
             "cash_books": cash_books,
             "bank_books": bank_books,
             "cash_lines": cash_lines,
             "bank_lines": bank_lines,
+            "cash_sales_lines": cash_sales_lines,
             "cash_open": cash_open,
             "cash_current": cash_current,
             "bank_open": bank_open,
             "bank_current": bank_current,
             "cash_in": cash_in,
             "cash_out": cash_out,
+            "cash_sales_book": cash_sales_book,
             "bank_in": bank_in,
             "bank_out": bank_out,
             "cash_trend": cash_trend,
+            "cash_sales_trend": cash_sales_trend,
             "bank_trend": bank_trend,
             "pos_cash_collected": pos_cash_collected,
             "pos_cash_trend": pos_cash_trend,
-            "cash_gap": round(cash_in - pos_cash_collected, 2),
+            "cash_gap": round(cash_sales_book - pos_cash_collected, 2),
+            "cash_match_rows": cash_match_rows,
         }
 
     @classmethod
@@ -587,27 +612,42 @@ class DashboardAPIService:
                 cls._kpi("cash_in", "Cash Inflow", finance["cash_in"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("cash_out", "Cash Outflow", finance["cash_out"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("pos_cash_collected", "POS Cash Collected", finance["pos_cash_collected"], "currency", currency_symbol=currency_symbol),
-                cls._kpi("cash_gap", "Cash Gap", finance["cash_gap"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("cashbook_sales", "Cashbook Sales Head", finance["cash_sales_book"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("cash_gap", "Sales Match Gap", finance["cash_gap"], "currency", currency_symbol=currency_symbol),
             ],
             "charts": [
                 cls._chart("cash_trend", "Cash Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["cash_trend"].items())]),
                 cls._chart("pos_cash_trend", "POS Cash Collection Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["pos_cash_trend"].items())]),
                 cls._chart(
                     "cash_check",
-                    "Cash Book vs POS Cash",
+                    "Cashbook Sales vs POS Cash",
                     [
-                        {"label": "Cash Book Inflow", "value": round(finance["cash_in"], 2)},
+                        {"label": "Cashbook Sales Head", "value": round(finance["cash_sales_book"], 2)},
                         {"label": "POS Cash Collected", "value": round(finance["pos_cash_collected"], 2)},
                     ],
                 ),
             ],
-            "tables": [],
+            "tables": [
+                cls._table(
+                    "cash_sales_match",
+                    "POS Cash vs Cashbook Sales Head",
+                    [
+                        {"key": "date", "label": "Date"},
+                        {"key": "pos_cash", "label": "POS Cash"},
+                        {"key": "cashbook_sales", "label": "Cashbook Sales"},
+                        {"key": "difference", "label": "Difference"},
+                        {"key": "status", "label": "Status"},
+                    ],
+                    finance["cash_match_rows"],
+                ),
+            ],
             "summary": {
                 "cash_current_balance": finance["cash_current"],
                 "cash_open_balance": finance["cash_open"],
                 "cash_inflow": finance["cash_in"],
                 "cash_outflow": finance["cash_out"],
                 "pos_cash_collected": finance["pos_cash_collected"],
+                "cashbook_sales": finance["cash_sales_book"],
                 "cash_gap": finance["cash_gap"],
             },
         }
