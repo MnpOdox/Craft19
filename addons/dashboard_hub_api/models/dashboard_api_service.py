@@ -722,6 +722,7 @@ class DashboardAPIService:
     def _build_cash(cls, env, companies, scope, date_from, date_to):
         finance = cls._finance_data(env, companies, date_from, date_to)
         currency_symbol = cls._currency_symbol(companies)
+        cash_outflow_items = cls._top_breakdown_items(finance["cash_outflow_heads"])
         return {
             "title": "Cash",
             "kpis": [
@@ -729,11 +730,29 @@ class DashboardAPIService:
                 cls._kpi("cash_current", "Cash Current", finance["cash_current"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("cash_in", "Cash Inflow", finance["cash_in"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("cash_out", "Cash Outflow", finance["cash_out"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("cash_spent_pct", "Cash Spent", finance["cash_spent_pct"], "decimal", suffix="%"),
+                cls._kpi("cash_remaining_pct", "Cash Remaining", finance["cash_remaining_pct"], "decimal", suffix="%"),
                 cls._kpi("pos_cash_collected", "POS Cash Collected", finance["pos_cash_collected"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("cashbook_sales", "Cashbook Sales Head", finance["cash_sales_book"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("cash_gap", "Sales Match Gap", finance["cash_gap"], "currency", currency_symbol=currency_symbol),
             ],
-            "charts": [],
+            "charts": [
+                cls._chart(
+                    "cash_position_summary",
+                    "Cash Position Summary",
+                    [
+                        {"label": "Opening", "value": round(finance["cash_open"], 2)},
+                        {"label": "Inflow", "value": round(finance["cash_in"], 2)},
+                        {"label": "Outflow", "value": round(finance["cash_out"], 2)},
+                        {"label": "Current", "value": round(finance["cash_current"], 2)},
+                    ],
+                ),
+                cls._chart(
+                    "cash_outflow_heads",
+                    "Where Cash Went",
+                    cash_outflow_items,
+                ),
+            ],
             "tables": [
                 cls._table(
                     "cash_sales_match",
@@ -753,6 +772,8 @@ class DashboardAPIService:
                 "cash_open_balance": finance["cash_open"],
                 "cash_inflow": finance["cash_in"],
                 "cash_outflow": finance["cash_out"],
+                "cash_spent_pct": finance["cash_spent_pct"],
+                "cash_remaining_pct": finance["cash_remaining_pct"],
                 "pos_cash_collected": finance["pos_cash_collected"],
                 "cashbook_sales": finance["cash_sales_book"],
                 "cash_gap": finance["cash_gap"],
@@ -763,6 +784,7 @@ class DashboardAPIService:
     def _build_bank(cls, env, companies, scope, date_from, date_to):
         finance = cls._finance_data(env, companies, date_from, date_to)
         currency_symbol = cls._currency_symbol(companies)
+        bank_outflow_items = cls._top_breakdown_items(finance["bank_outflow_heads"])
         return {
             "title": "Bank",
             "kpis": [
@@ -770,20 +792,27 @@ class DashboardAPIService:
                 cls._kpi("bank_current", "Bank Current", finance["bank_current"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_in", "Bank Inflow", finance["bank_in"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_out", "Bank Outflow", finance["bank_out"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("bank_spent_pct", "Bank Spent", finance["bank_spent_pct"], "decimal", suffix="%"),
+                cls._kpi("bank_remaining_pct", "Bank Remaining", finance["bank_remaining_pct"], "decimal", suffix="%"),
                 cls._kpi("pos_bank_collected", "POS Bank Collected", finance["pos_bank_collected"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bankbook_sales", "Bankbook Sales Head", finance["bank_sales_book"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_gap", "Sales Match Gap", finance["bank_gap"], "currency", currency_symbol=currency_symbol),
             ],
             "charts": [
-                cls._chart("bank_trend", "Bank Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["bank_trend"].items())]),
-                cls._chart("pos_bank_trend", "POS Bank Collection Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["pos_bank_trend"].items())]),
                 cls._chart(
-                    "bank_check",
-                    "Bankbook Sales vs POS Bank",
+                    "bank_position_summary",
+                    "Bank Position Summary",
                     [
-                        {"label": "Bankbook Sales Head", "value": round(finance["bank_sales_book"], 2)},
-                        {"label": "POS Bank Collected", "value": round(finance["pos_bank_collected"], 2)},
+                        {"label": "Opening", "value": round(finance["bank_open"], 2)},
+                        {"label": "Inflow", "value": round(finance["bank_in"], 2)},
+                        {"label": "Outflow", "value": round(finance["bank_out"], 2)},
+                        {"label": "Current", "value": round(finance["bank_current"], 2)},
                     ],
+                ),
+                cls._chart(
+                    "bank_outflow_heads",
+                    "Where Bank Went",
+                    bank_outflow_items,
                 ),
             ],
             "tables": [
@@ -805,6 +834,8 @@ class DashboardAPIService:
                 "bank_open_balance": finance["bank_open"],
                 "bank_inflow": finance["bank_in"],
                 "bank_outflow": finance["bank_out"],
+                "bank_spent_pct": finance["bank_spent_pct"],
+                "bank_remaining_pct": finance["bank_remaining_pct"],
                 "pos_bank_collected": finance["pos_bank_collected"],
                 "bankbook_sales": finance["bank_sales_book"],
                 "bank_gap": finance["bank_gap"],
