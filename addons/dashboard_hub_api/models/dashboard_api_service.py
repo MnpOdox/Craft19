@@ -222,6 +222,23 @@ class DashboardAPIService:
         return [{"label": label, "value": round(value, 2)} for label, value in sorted(grouped.items(), key=lambda item: item[1], reverse=True)]
 
     @classmethod
+    def _top_breakdown_items(cls, totals, limit=8, aggregate_others=True):
+        ordered = sorted(
+            ((label or "Unknown", round(value, 2)) for label, value in totals.items() if abs(value or 0.0) > 0.0),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        if not ordered:
+            return []
+        if aggregate_others and len(ordered) > limit:
+            top_items = ordered[:limit]
+            others_total = round(sum(value for _, value in ordered[limit:]), 2)
+            if others_total:
+                top_items.append(("Others", others_total))
+            ordered = top_items
+        return [{"label": label, "value": value} for label, value in ordered]
+
+    @classmethod
     def _book_period_domain(cls, date_from, date_to):
         if not date_from and not date_to:
             return []
@@ -261,12 +278,27 @@ class DashboardAPIService:
         cash_sales_trend = defaultdict(float)
         for line in cash_sales_lines:
             cash_sales_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
+        cash_outflow_heads = defaultdict(float)
+        for line in cash_lines:
+            amount = line.amount or 0.0
+            if amount < 0:
+                cash_outflow_heads[line.head_id.display_name or "Unknown"] += abs(amount)
         bank_sales_trend = defaultdict(float)
         for line in bank_sales_lines:
             bank_sales_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
         bank_trend = defaultdict(float)
         for line in bank_lines:
             bank_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
+        bank_outflow_heads = defaultdict(float)
+        for line in bank_lines:
+            amount = line.amount or 0.0
+            if amount < 0:
+                bank_outflow_heads[line.head_id.display_name or "Unknown"] += abs(amount)
+        total_outflow_heads = defaultdict(float)
+        for label, value in cash_outflow_heads.items():
+            total_outflow_heads[label] += value
+        for label, value in bank_outflow_heads.items():
+            total_outflow_heads[label] += value
 
         orders_domain = cls._date_domain("date_order", date_from, date_to) + [("company_id", "in", companies.ids), ("state", "not in", ["cancel", "draft"])]
         orders = env["pos.order"].search(orders_domain)
@@ -336,8 +368,11 @@ class DashboardAPIService:
             "bank_out": bank_out,
             "cash_trend": cash_trend,
             "cash_sales_trend": cash_sales_trend,
+            "cash_outflow_heads": cash_outflow_heads,
             "bank_sales_trend": bank_sales_trend,
             "bank_trend": bank_trend,
+            "bank_outflow_heads": bank_outflow_heads,
+            "total_outflow_heads": total_outflow_heads,
             "pos_cash_collected": pos_cash_collected,
             "pos_cash_trend": pos_cash_trend,
             "pos_bank_collected": pos_bank_collected,
@@ -346,6 +381,12 @@ class DashboardAPIService:
             "bank_gap": round(bank_sales_book - pos_bank_collected, 2),
             "cash_match_rows": cash_match_rows,
             "bank_match_rows": bank_match_rows,
+            "cash_available": round(cash_open + cash_in, 2),
+            "bank_available": round(bank_open + bank_in, 2),
+            "cash_remaining_pct": round(((cash_current / (cash_open + cash_in)) * 100.0) if (cash_open + cash_in) else 0.0, 2),
+            "bank_remaining_pct": round(((bank_current / (bank_open + bank_in)) * 100.0) if (bank_open + bank_in) else 0.0, 2),
+            "cash_spent_pct": round(((cash_out / (cash_open + cash_in)) * 100.0) if (cash_open + cash_in) else 0.0, 2),
+            "bank_spent_pct": round(((bank_out / (bank_open + bank_in)) * 100.0) if (bank_open + bank_in) else 0.0, 2),
         }
 
     @classmethod
@@ -607,6 +648,9 @@ class DashboardAPIService:
     def _build_finance(cls, env, companies, scope, date_from, date_to):
         finance = cls._finance_data(env, companies, date_from, date_to)
         currency_symbol = cls._currency_symbol(companies)
+        cash_outflow_items = cls._top_breakdown_items(finance["cash_outflow_heads"])
+        bank_outflow_items = cls._top_breakdown_items(finance["bank_outflow_heads"])
+        combined_outflow_items = cls._top_breakdown_items(finance["total_outflow_heads"])
 
         return {
             "title": "Finance",
@@ -619,10 +663,47 @@ class DashboardAPIService:
                 cls._kpi("cash_out", "Cash Outflow", finance["cash_out"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_in", "Bank Inflow", finance["bank_in"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_out", "Bank Outflow", finance["bank_out"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("cash_spent_pct", "Cash Spent", finance["cash_spent_pct"], "decimal", suffix="%"),
+                cls._kpi("cash_remaining_pct", "Cash Remaining", finance["cash_remaining_pct"], "decimal", suffix="%"),
+                cls._kpi("bank_spent_pct", "Bank Spent", finance["bank_spent_pct"], "decimal", suffix="%"),
+                cls._kpi("bank_remaining_pct", "Bank Remaining", finance["bank_remaining_pct"], "decimal", suffix="%"),
             ],
             "charts": [
-                cls._chart("cash_trend", "Cash Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["cash_trend"].items())]),
-                cls._chart("bank_trend", "Bank Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["bank_trend"].items())]),
+                cls._chart(
+                    "cash_position_summary",
+                    "Cash Position Summary",
+                    [
+                        {"label": "Opening", "value": round(finance["cash_open"], 2)},
+                        {"label": "Inflow", "value": round(finance["cash_in"], 2)},
+                        {"label": "Outflow", "value": round(finance["cash_out"], 2)},
+                        {"label": "Current", "value": round(finance["cash_current"], 2)},
+                    ],
+                ),
+                cls._chart(
+                    "cash_outflow_heads",
+                    "Where Cash Went",
+                    cash_outflow_items,
+                ),
+                cls._chart(
+                    "bank_position_summary",
+                    "Bank Position Summary",
+                    [
+                        {"label": "Opening", "value": round(finance["bank_open"], 2)},
+                        {"label": "Inflow", "value": round(finance["bank_in"], 2)},
+                        {"label": "Outflow", "value": round(finance["bank_out"], 2)},
+                        {"label": "Current", "value": round(finance["bank_current"], 2)},
+                    ],
+                ),
+                cls._chart(
+                    "bank_outflow_heads",
+                    "Where Bank Went",
+                    bank_outflow_items,
+                ),
+                cls._chart(
+                    "total_outflow_heads",
+                    "Overall Money Outflow Areas",
+                    combined_outflow_items,
+                ),
             ],
             "tables": [],
             "summary": {
@@ -630,6 +711,10 @@ class DashboardAPIService:
                 "bank_current_balance": finance["bank_current"],
                 "cash_open_balance": finance["cash_open"],
                 "bank_open_balance": finance["bank_open"],
+                "cash_spent_pct": finance["cash_spent_pct"],
+                "cash_remaining_pct": finance["cash_remaining_pct"],
+                "bank_spent_pct": finance["bank_spent_pct"],
+                "bank_remaining_pct": finance["bank_remaining_pct"],
             },
         }
 
