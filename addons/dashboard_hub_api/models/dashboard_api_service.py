@@ -239,8 +239,10 @@ class DashboardAPIService:
         bank_books = env["bank.book"].search([("company_id", "in", companies.ids)] + book_period_domain)
         cash_lines = env["cash.book.line"].search(cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids)])
         bank_lines = env["bank.book.line"].search(cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids)])
-        sales_heads = env["book.head"].search([("cash", "=", True), ("head_name", "ilike", "sales")])
-        cash_sales_lines = cash_lines.filtered(lambda line: line.head_id.id in sales_heads.ids)
+        cash_sales_heads = env["book.head"].search([("cash", "=", True), ("head_name", "ilike", "sales")])
+        bank_sales_heads = env["book.head"].search([("bank", "=", True), ("head_name", "ilike", "sales")])
+        cash_sales_lines = cash_lines.filtered(lambda line: line.head_id.id in cash_sales_heads.ids)
+        bank_sales_lines = bank_lines.filtered(lambda line: line.head_id.id in bank_sales_heads.ids)
 
         cash_open = sum(cash_books.mapped("open_balance"))
         cash_current = sum(cash_books.mapped("cur_balance"))
@@ -249,6 +251,7 @@ class DashboardAPIService:
         cash_in = sum(line.amount for line in cash_lines if (line.amount or 0.0) > 0)
         cash_out = abs(sum(line.amount for line in cash_lines if (line.amount or 0.0) < 0))
         cash_sales_book = sum(line.amount or 0.0 for line in cash_sales_lines)
+        bank_sales_book = sum(line.amount or 0.0 for line in bank_sales_lines)
         bank_in = sum(line.amount for line in bank_lines if (line.amount or 0.0) > 0)
         bank_out = abs(sum(line.amount for line in bank_lines if (line.amount or 0.0) < 0))
 
@@ -258,6 +261,9 @@ class DashboardAPIService:
         cash_sales_trend = defaultdict(float)
         for line in cash_sales_lines:
             cash_sales_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
+        bank_sales_trend = defaultdict(float)
+        for line in bank_sales_lines:
+            bank_sales_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
         bank_trend = defaultdict(float)
         for line in bank_lines:
             bank_trend[(line.date or fields.Date.today()).strftime("%Y-%m-%d")] += line.amount or 0.0
@@ -267,14 +273,20 @@ class DashboardAPIService:
         payments = env["pos.payment"].search([("pos_order_id", "in", orders.ids)]) if orders else env["pos.payment"]
         pos_cash_collected = 0.0
         pos_cash_trend = defaultdict(float)
+        pos_bank_collected = 0.0
+        pos_bank_trend = defaultdict(float)
         for payment in payments:
-            if not payment.payment_method_id or not getattr(payment.payment_method_id, "is_cash_count", False):
+            if not payment.payment_method_id:
                 continue
             amount = payment.amount or 0.0
-            pos_cash_collected += amount
             order_date = payment.pos_order_id.date_order if payment.pos_order_id else None
             label = fields.Datetime.to_datetime(order_date).strftime("%Y-%m-%d") if order_date else fields.Date.today().strftime("%Y-%m-%d")
-            pos_cash_trend[label] += amount
+            if getattr(payment.payment_method_id, "is_cash_count", False):
+                pos_cash_collected += amount
+                pos_cash_trend[label] += amount
+                continue
+            pos_bank_collected += amount
+            pos_bank_trend[label] += amount
 
         cash_match_rows = []
         for label in sorted(set(list(pos_cash_trend.keys()) + list(cash_sales_trend.keys()))):
@@ -290,6 +302,20 @@ class DashboardAPIService:
                     "status": "Matched" if diff == 0 else "Not Matching",
                 }
             )
+        bank_match_rows = []
+        for label in sorted(set(list(pos_bank_trend.keys()) + list(bank_sales_trend.keys()))):
+            pos_amount = round(pos_bank_trend.get(label, 0.0), 2)
+            bankbook_amount = round(bank_sales_trend.get(label, 0.0), 2)
+            diff = round(bankbook_amount - pos_amount, 2)
+            bank_match_rows.append(
+                {
+                    "date": label,
+                    "pos_bank": pos_amount,
+                    "bankbook_sales": bankbook_amount,
+                    "difference": diff,
+                    "status": "Matched" if diff == 0 else "Not Matching",
+                }
+            )
 
         return {
             "cash_books": cash_books,
@@ -297,6 +323,7 @@ class DashboardAPIService:
             "cash_lines": cash_lines,
             "bank_lines": bank_lines,
             "cash_sales_lines": cash_sales_lines,
+            "bank_sales_lines": bank_sales_lines,
             "cash_open": cash_open,
             "cash_current": cash_current,
             "bank_open": bank_open,
@@ -304,15 +331,21 @@ class DashboardAPIService:
             "cash_in": cash_in,
             "cash_out": cash_out,
             "cash_sales_book": cash_sales_book,
+            "bank_sales_book": bank_sales_book,
             "bank_in": bank_in,
             "bank_out": bank_out,
             "cash_trend": cash_trend,
             "cash_sales_trend": cash_sales_trend,
+            "bank_sales_trend": bank_sales_trend,
             "bank_trend": bank_trend,
             "pos_cash_collected": pos_cash_collected,
             "pos_cash_trend": pos_cash_trend,
+            "pos_bank_collected": pos_bank_collected,
+            "pos_bank_trend": pos_bank_trend,
             "cash_gap": round(cash_sales_book - pos_cash_collected, 2),
+            "bank_gap": round(bank_sales_book - pos_bank_collected, 2),
             "cash_match_rows": cash_match_rows,
+            "bank_match_rows": bank_match_rows,
         }
 
     @classmethod
@@ -663,16 +696,44 @@ class DashboardAPIService:
                 cls._kpi("bank_current", "Bank Current", finance["bank_current"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_in", "Bank Inflow", finance["bank_in"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_out", "Bank Outflow", finance["bank_out"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("pos_bank_collected", "POS Bank Collected", finance["pos_bank_collected"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("bankbook_sales", "Bankbook Sales Head", finance["bank_sales_book"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("bank_gap", "Sales Match Gap", finance["bank_gap"], "currency", currency_symbol=currency_symbol),
             ],
             "charts": [
                 cls._chart("bank_trend", "Bank Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["bank_trend"].items())]),
+                cls._chart("pos_bank_trend", "POS Bank Collection Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["pos_bank_trend"].items())]),
+                cls._chart(
+                    "bank_check",
+                    "Bankbook Sales vs POS Bank",
+                    [
+                        {"label": "Bankbook Sales Head", "value": round(finance["bank_sales_book"], 2)},
+                        {"label": "POS Bank Collected", "value": round(finance["pos_bank_collected"], 2)},
+                    ],
+                ),
             ],
-            "tables": [],
+            "tables": [
+                cls._table(
+                    "bank_sales_match",
+                    "POS Bank vs Bankbook Sales Head",
+                    [
+                        {"key": "date", "label": "Date"},
+                        {"key": "pos_bank", "label": "POS Bank"},
+                        {"key": "bankbook_sales", "label": "Bankbook Sales"},
+                        {"key": "difference", "label": "Difference"},
+                        {"key": "status", "label": "Status"},
+                    ],
+                    finance["bank_match_rows"],
+                ),
+            ],
             "summary": {
                 "bank_current_balance": finance["bank_current"],
                 "bank_open_balance": finance["bank_open"],
                 "bank_inflow": finance["bank_in"],
                 "bank_outflow": finance["bank_out"],
+                "pos_bank_collected": finance["pos_bank_collected"],
+                "bankbook_sales": finance["bank_sales_book"],
+                "bank_gap": finance["bank_gap"],
             },
         }
 
