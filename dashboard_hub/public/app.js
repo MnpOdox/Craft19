@@ -7,6 +7,7 @@ const state = {
   period: localStorage.getItem("dashboard.period") || "this_month",
   dateFrom: localStorage.getItem("dashboard.dateFrom") || "",
   dateTo: localStorage.getItem("dashboard.dateTo") || "",
+  chartPages: {},
 };
 
 const loginShell = document.getElementById("login-shell");
@@ -158,28 +159,56 @@ function renderKpis(kpis) {
 
 function renderCharts(charts) {
   chartGrid.innerHTML = "";
+  const pageSize = 10;
   (charts || []).forEach((chart) => {
     const panel = document.createElement("article");
     panel.className = "card panel";
     const max = Math.max(...(chart.items || []).map((item) => Number(item.value || 0)), 1);
-    panel.innerHTML = `
-      <div class="panel-head">
-        <h3>${chart.title}</h3>
-      </div>
-      <div class="bar-list">
-        ${(chart.items || [])
-          .slice(0, 12)
-          .map(
-            (item) => `
-            <div class="bar-row">
-              <span class="bar-label">${item.label}</span>
-              <div class="bar-track"><div class="bar-fill" style="width:${(Number(item.value || 0) / max) * 100}%"></div></div>
-              <span class="bar-value">${Number(item.value || 0).toLocaleString()}</span>
-            </div>`,
-          )
-          .join("")}
-      </div>
-    `;
+    const items = chart.items || [];
+    const totalPages = Math.max(Math.ceil(items.length / pageSize), 1);
+    const currentPage = Math.min(state.chartPages[chart.key] || 0, totalPages - 1);
+    state.chartPages[chart.key] = currentPage;
+
+    const renderChartPage = () => {
+      const page = state.chartPages[chart.key] || 0;
+      const start = page * pageSize;
+      const visibleItems = items.slice(start, start + pageSize);
+      panel.innerHTML = `
+        <div class="panel-head">
+          <h3>${chart.title}</h3>
+          ${
+            items.length > pageSize
+              ? `<div class="panel-pagination">
+                  <button type="button" class="chart-page-btn" data-direction="-1" ${page === 0 ? "disabled" : ""}>Prev</button>
+                  <span class="chart-page-status">${start + 1}-${Math.min(start + pageSize, items.length)} of ${items.length}</span>
+                  <button type="button" class="chart-page-btn" data-direction="1" ${page >= totalPages - 1 ? "disabled" : ""}>Next</button>
+                </div>`
+              : ""
+          }
+        </div>
+        <div class="bar-list">
+          ${visibleItems
+            .map(
+              (item) => `
+              <div class="bar-row">
+                <span class="bar-label">${item.label}</span>
+                <div class="bar-track"><div class="bar-fill" style="width:${(Number(item.value || 0) / max) * 100}%"></div></div>
+                <span class="bar-value">${Number(item.value || 0).toLocaleString()}</span>
+              </div>`,
+            )
+            .join("")}
+        </div>
+      `;
+      panel.querySelectorAll(".chart-page-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          const nextPage = page + Number(button.dataset.direction || 0);
+          state.chartPages[chart.key] = Math.max(0, Math.min(nextPage, totalPages - 1));
+          renderChartPage();
+        });
+      });
+    };
+
+    renderChartPage();
     chartGrid.appendChild(panel);
   });
 }
