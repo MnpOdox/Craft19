@@ -89,7 +89,7 @@ function readRequestBody(req) {
 }
 
 function safePage(pageName) {
-  return ["overview", "sales", "purchases", "stock", "finance", "expenses"].includes(pageName)
+  return ["overview", "sales", "purchases", "stock", "finance", "cash", "bank", "expenses"].includes(pageName)
     ? pageName
     : "overview";
 }
@@ -187,7 +187,8 @@ function appMetadata(session) {
       { key: "sales", label: "Sales" },
       { key: "purchases", label: "Purchases" },
       { key: "stock", label: "Stock" },
-      { key: "finance", label: "Finance" },
+      { key: "cash", label: "Cash" },
+      { key: "bank", label: "Bank" },
       { key: "expenses", label: "Expenses" },
     ],
     regions,

@@ -46,6 +46,14 @@ class DashboardHubAPIController(http.Controller):
     def dashboard_finance(self, **kwargs):
         return self._dispatch("finance")
 
+    @http.route("/dashboard_hub_api/cash", auth="public", type="http", csrf=False, methods=["POST"])
+    def dashboard_cash(self, **kwargs):
+        return self._dispatch("cash")
+
+    @http.route("/dashboard_hub_api/bank", auth="public", type="http", csrf=False, methods=["POST"])
+    def dashboard_bank(self, **kwargs):
+        return self._dispatch("bank")
+
     @http.route("/dashboard_hub_api/expenses", auth="public", type="http", csrf=False, methods=["POST"])
     def dashboard_expenses(self, **kwargs):
         return self._dispatch("expenses")
