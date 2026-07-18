@@ -648,18 +648,7 @@ class DashboardAPIService:
                 cls._kpi("cashbook_sales", "Cashbook Sales Head", finance["cash_sales_book"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("cash_gap", "Sales Match Gap", finance["cash_gap"], "currency", currency_symbol=currency_symbol),
             ],
-            "charts": [
-                cls._chart("cash_trend", "Cash Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["cash_trend"].items())]),
-                cls._chart("pos_cash_trend", "POS Cash Collection Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(finance["pos_cash_trend"].items())]),
-                cls._chart(
-                    "cash_check",
-                    "Cashbook Sales vs POS Cash",
-                    [
-                        {"label": "Cashbook Sales Head", "value": round(finance["cash_sales_book"], 2)},
-                        {"label": "POS Cash Collected", "value": round(finance["pos_cash_collected"], 2)},
-                    ],
-                ),
-            ],
+            "charts": [],
             "tables": [
                 cls._table(
                     "cash_sales_match",
