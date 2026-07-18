@@ -239,6 +239,11 @@ class DashboardAPIService:
         return [{"label": label, "value": value} for label, value in ordered]
 
     @classmethod
+    def _is_gpay_payment_method(cls, payment_method):
+        name = (payment_method.display_name or payment_method.name or "").strip().lower()
+        return name in {"gpay", "g pay", "google pay", "googlepay"}
+
+    @classmethod
     def _book_period_domain(cls, date_from, date_to):
         if not date_from and not date_to:
             return []
@@ -317,8 +322,9 @@ class DashboardAPIService:
                 pos_cash_collected += amount
                 pos_cash_trend[label] += amount
                 continue
-            pos_bank_collected += amount
-            pos_bank_trend[label] += amount
+            if cls._is_gpay_payment_method(payment.payment_method_id):
+                pos_bank_collected += amount
+                pos_bank_trend[label] += amount
 
         cash_match_rows = []
         for label in sorted(set(list(pos_cash_trend.keys()) + list(cash_sales_trend.keys()))):
@@ -794,7 +800,7 @@ class DashboardAPIService:
                 cls._kpi("bank_out", "Bank Outflow", finance["bank_out"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_spent_pct", "Bank Spent", finance["bank_spent_pct"], "decimal", suffix="%"),
                 cls._kpi("bank_remaining_pct", "Bank Remaining", finance["bank_remaining_pct"], "decimal", suffix="%"),
-                cls._kpi("pos_bank_collected", "POS Bank Collected", finance["pos_bank_collected"], "currency", currency_symbol=currency_symbol),
+                cls._kpi("pos_bank_collected", "POS GPay Collected", finance["pos_bank_collected"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bankbook_sales", "Bankbook Sales Head", finance["bank_sales_book"], "currency", currency_symbol=currency_symbol),
                 cls._kpi("bank_gap", "Sales Match Gap", finance["bank_gap"], "currency", currency_symbol=currency_symbol),
             ],
@@ -818,10 +824,10 @@ class DashboardAPIService:
             "tables": [
                 cls._table(
                     "bank_sales_match",
-                    "POS Bank vs Bankbook Sales Head",
+                    "POS GPay vs Bankbook Sales Head",
                     [
                         {"key": "date", "label": "Date"},
-                        {"key": "pos_bank", "label": "POS Bank"},
+                        {"key": "pos_bank", "label": "POS GPay"},
                         {"key": "bankbook_sales", "label": "Bankbook Sales"},
                         {"key": "difference", "label": "Difference"},
                         {"key": "status", "label": "Status"},
