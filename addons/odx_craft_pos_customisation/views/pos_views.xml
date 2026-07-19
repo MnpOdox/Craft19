@@ -31,5 +31,22 @@
             </field>
         </record>
 
+        <record id="pos_inherit_search_view" model="ir.ui.view">
+            <field name="name">pos.order.search.sale.type.filters</field>
+            <field name="model">pos.order</field>
+            <field name="inherit_id" ref="point_of_sale.view_pos_order_filter"/>
+            <field name="arch" type="xml">
+                <xpath expr="//filter[@name='month']" position="after">
+                    <separator/>
+                    <filter name="online_sales" string="Online Sales" domain="[('online_order', '=', True)]"/>
+                    <filter name="crm_sales" string="CRM Sales" domain="[('crm_sale', '=', True)]"/>
+                    <filter
+                        name="walking_sales"
+                        string="Walking Customer"
+                        domain="[('online_order', '=', False), ('crm_sale', '=', False)]"/>
+                </xpath>
+            </field>
+        </record>
+
     </data>
 </odoo>
