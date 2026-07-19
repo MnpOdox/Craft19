@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="pos_payment_method_view_form_books" model="ir.ui.view">
+        <field name="name">pos.payment.method.form.books</field>
+        <field name="model">pos.payment.method</field>
+        <field name="inherit_id" ref="point_of_sale.pos_payment_method_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='config_ids']" position="after">
+                <field name="pos_book_excluded"/>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="pos_payment_method_view_list_books" model="ir.ui.view">
+        <field name="name">pos.payment.method.list.books</field>
+        <field name="model">pos.payment.method</field>
+        <field name="inherit_id" ref="point_of_sale.pos_payment_method_view_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='config_ids']" position="after">
+                <field name="pos_book_excluded" optional="hide"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

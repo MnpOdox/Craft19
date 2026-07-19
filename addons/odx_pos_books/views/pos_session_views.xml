@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_pos_config_form_books" model="ir.ui.view">
+        <field name="name">pos.config.form.books</field>
+        <field name="model">pos.config</field>
+        <field name="inherit_id" ref="point_of_sale.pos_config_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('o_settings_container')][not(@id)]/setting[1]" position="before">
+                <setting string="Cash In/Out Heads"
+                         help="Choose the Cash Book heads cashiers can use for Cash In and Cash Out.">
+                    <field name="pos_cash_move_head_ids" widget="many2many_tags"
+                           domain="[('cash', '=', True)]" options="{'no_create': True}"/>
+                </setting>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="view_pos_session_form_books" model="ir.ui.view">
+        <field name="name">pos.session.form.books</field>
+        <field name="model">pos.session</field>
+        <field name="inherit_id" ref="point_of_sale.view_pos_session_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_pos_cash_book_lines" type="object" class="oe_stat_button" icon="fa-money"
+                        invisible="pos_cash_book_line_count == 0">
+                    <field name="pos_cash_book_line_count" widget="statinfo" string="Cash Book Lines"/>
+                </button>
+                <button name="action_open_pos_bank_book_lines" type="object" class="oe_stat_button" icon="fa-bank"
+                        invisible="pos_bank_book_line_count == 0">
+                    <field name="pos_bank_book_line_count" widget="statinfo" string="Bank Book Lines"/>
+                </button>
+            </xpath>
+            <xpath expr="//header" position="inside">
+                <button name="action_rebuild_pos_book_entries" type="object" string="Rebuild POS Book Entries"
+                        groups="odx_books.group_book_manager" invisible="state != 'closed'"/>
+            </xpath>
+            <xpath expr="//field[@name='stop_at']" position="after">
+                <field name="pos_book_synced" readonly="1"/>
+                <field name="pos_book_sync_date" readonly="1" invisible="not pos_book_synced"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

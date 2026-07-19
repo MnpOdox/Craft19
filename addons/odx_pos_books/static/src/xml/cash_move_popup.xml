@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="odx_pos_books.CashMovePopup" t-inherit="point_of_sale.CashMovePopup" t-inherit-mode="extension">
+        <xpath expr="//div[hasclass('form-floating')]" position="before">
+            <div class="form-floating mb-2">
+                <select class="form-select" id="pos_book_head_id" t-model="state.posBookHeadId"
+                        t-on-change="onCashBookHeadChange">
+                    <option value="">Select Cash Book Head</option>
+                    <option t-foreach="cashBookHeads" t-as="head" t-key="head.id" t-att-value="head.id">
+                        <t t-esc="head.head_name"/>
+                    </option>
+                </select>
+                <label for="pos_book_head_id">Cash Book Head</label>
+            </div>
+        </xpath>
+        <xpath expr="//div[hasclass('form-floating')][textarea]" position="replace">
+            <div class="form-floating">
+                <input class="form-control" id="reason" t-att-value="state.reason" readonly="readonly"/>
+                <label for="reason">Reason (from Cash Book Head)</label>
+            </div>
+        </xpath>
+    </t>
+</templates>
