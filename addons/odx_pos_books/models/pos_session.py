@@ -7,11 +7,26 @@ class PosSession(models.Model):
 
     pos_book_synced = fields.Boolean(string="Books Synchronized", readonly=True, copy=False)
     pos_book_sync_date = fields.Datetime(string="Book Synchronization Date", readonly=True, copy=False)
-    pos_cash_book_line_ids = fields.One2many("cash.book.line", "pos_session_id", string="Cash Book Lines")
-    pos_bank_book_line_ids = fields.One2many("bank.book.line", "pos_session_id", string="Bank Book Lines")
-    pos_book_line_count = fields.Integer(compute="_compute_pos_book_line_count")
-    pos_cash_book_line_count = fields.Integer(compute="_compute_pos_book_line_count")
-    pos_bank_book_line_count = fields.Integer(compute="_compute_pos_book_line_count")
+    pos_cash_book_line_ids = fields.One2many(
+        "cash.book.line", "pos_session_id", string="Cash Book Lines",
+        groups="odx_books.group_cash_book_user,odx_books.group_book_manager",
+    )
+    pos_bank_book_line_ids = fields.One2many(
+        "bank.book.line", "pos_session_id", string="Bank Book Lines",
+        groups="odx_books.group_bank_book_user,odx_books.group_book_manager",
+    )
+    pos_book_line_count = fields.Integer(
+        compute="_compute_pos_book_line_count",
+        groups="odx_books.group_book_manager",
+    )
+    pos_cash_book_line_count = fields.Integer(
+        compute="_compute_pos_book_line_count",
+        groups="odx_books.group_cash_book_user,odx_books.group_book_manager",
+    )
+    pos_bank_book_line_count = fields.Integer(
+        compute="_compute_pos_book_line_count",
+        groups="odx_books.group_bank_book_user,odx_books.group_book_manager",
+    )
 
     @api.depends("pos_cash_book_line_ids", "pos_bank_book_line_ids")
     def _compute_pos_book_line_count(self):

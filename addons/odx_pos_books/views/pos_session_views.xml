@@ -22,10 +22,12 @@
         <field name="arch" type="xml">
             <xpath expr="//div[@name='button_box']" position="inside">
                 <button name="action_open_pos_cash_book_lines" type="object" class="oe_stat_button" icon="fa-money"
+                        groups="odx_books.group_cash_book_user,odx_books.group_book_manager"
                         invisible="pos_cash_book_line_count == 0">
                     <field name="pos_cash_book_line_count" widget="statinfo" string="Cash Book Lines"/>
                 </button>
                 <button name="action_open_pos_bank_book_lines" type="object" class="oe_stat_button" icon="fa-bank"
+                        groups="odx_books.group_bank_book_user,odx_books.group_book_manager"
                         invisible="pos_bank_book_line_count == 0">
                     <field name="pos_bank_book_line_count" widget="statinfo" string="Bank Book Lines"/>
                 </button>
