@@ -204,6 +204,4 @@ class PosSession(models.Model):
         head = self.env["book.head"].browse(head_id).exists()
         if not head or any(head not in session.config_id.pos_cash_move_head_ids for session in self):
             raise UserError(_("Select a Cash Book head enabled for this Point of Sale."))
-        if head.pos_drawer_transfer and _type != "out":
-            raise UserError(_("The POS Drawer Transfer head can only be used for Cash Out."))
         return super().try_cash_in_out(_type, amount, head.head_name, partner_id, extras)

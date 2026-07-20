@@ -71,6 +71,10 @@ class TestPosBooks(TestPoSCommon):
             "out", 5.0, "Ignored manual reason", self.env.user.partner_id.id,
             {"translatedType": "out", "pos_book_head_id": self.transfer_head.id},
         )
+        self.pos_session.try_cash_in_out(
+            "in", 2.0, "Ignored manual reason", self.env.user.partner_id.id,
+            {"translatedType": "in", "pos_book_head_id": self.transfer_head.id},
+        )
 
         self.pos_session.post_closing_cash_details(0.0)
         self.pos_session.action_pos_session_validate()
@@ -92,7 +96,11 @@ class TestPosBooks(TestPoSCommon):
         transfer_move = self.pos_session.statement_line_ids.filtered(
             lambda line: line.pos_book_head_id == self.transfer_head
         )
-        self.assertTrue(transfer_move.payment_ref.endswith(self.transfer_head.head_name))
+        self.assertEqual(len(transfer_move), 2)
+        self.assertTrue(all(
+            move.payment_ref.endswith(self.transfer_head.head_name)
+            for move in transfer_move
+        ))
         self.assertFalse(self.pos_session.pos_cash_book_line_ids.filtered(
             lambda line: line.pos_statement_line_id == transfer_move
         ))

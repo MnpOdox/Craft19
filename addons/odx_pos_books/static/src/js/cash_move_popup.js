@@ -18,9 +18,6 @@ patch(CashMovePopup.prototype, {
             (record) => record.id === Number(this.state.posBookHeadId)
         );
         this.state.reason = head?.head_name || "";
-        if (head?.pos_drawer_transfer) {
-            this.state.type = "out";
-        }
     },
 
     _prepareTryCashInOutPayload() {

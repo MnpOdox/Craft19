@@ -8,8 +8,9 @@ class BookHead(models.Model):
     pos_drawer_transfer = fields.Boolean(
         string="POS Drawer Transfer",
         help=(
-            "Use for the end-of-day Cash Out handed to the manager. The movement reduces "
-            "the POS drawer but is not posted again to the Cash Book."
+            "Use for cash transferred between the POS drawer and the manager. Cash Out "
+            "reduces the drawer and Cash In replenishes it. Neither movement is posted "
+            "again to the Cash Book."
         ),
     )
 
