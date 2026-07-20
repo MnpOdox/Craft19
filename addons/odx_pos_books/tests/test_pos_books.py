@@ -98,7 +98,7 @@ class TestPosBooks(TestPoSCommon):
         )
         self.assertEqual(len(transfer_move), 2)
         self.assertTrue(all(
-            move.payment_ref.endswith(self.transfer_head.head_name)
+            move.payment_ref.endswith("Ignored manual reason")
             for move in transfer_move
         ))
         self.assertFalse(self.pos_session.pos_cash_book_line_ids.filtered(

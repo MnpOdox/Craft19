@@ -15,8 +15,9 @@
         </xpath>
         <xpath expr="//div[hasclass('form-floating')][textarea]" position="replace">
             <div class="form-floating">
-                <input class="form-control" id="reason" t-att-value="state.reason" readonly="readonly"/>
-                <label for="reason">Reason (from Cash Book Head)</label>
+                <textarea class="form-control cash-reason" id="reason" name="reason"
+                          t-model="state.reason" style="height:100px;"/>
+                <label for="reason">Reason</label>
             </div>
         </xpath>
     </t>
