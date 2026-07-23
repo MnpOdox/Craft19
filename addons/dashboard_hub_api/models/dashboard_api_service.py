@@ -74,6 +74,9 @@ class DashboardAPIService:
             return date_from, date_to, "custom"
         if period == "today":
             return today, today, period
+        if period == "yesterday":
+            yesterday = today - timedelta(days=1)
+            return yesterday, yesterday, period
         if period == "this_week":
             start = today - timedelta(days=today.weekday())
             return start, start + timedelta(days=6), period
@@ -93,6 +96,9 @@ class DashboardAPIService:
         if not date_from or not date_to or period == "all":
             return None, None
         if period == "today":
+            previous_day = date_from - timedelta(days=1)
+            return previous_day, previous_day
+        if period == "yesterday":
             previous_day = date_from - timedelta(days=1)
             return previous_day, previous_day
         if period == "this_week":
