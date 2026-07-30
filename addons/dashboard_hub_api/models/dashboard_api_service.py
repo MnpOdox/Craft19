@@ -197,12 +197,13 @@ class DashboardAPIService:
         }
 
     @classmethod
-    def _chart(cls, key, title, items, chart_type="bar"):
+    def _chart(cls, key, title, items, chart_type="bar", preview_limit=None):
         return {
             "key": key,
             "title": title,
             "type": chart_type,
             "items": items,
+            "preview_limit": preview_limit,
         }
 
     @classmethod
@@ -660,9 +661,9 @@ class DashboardAPIService:
     def _build_finance(cls, env, companies, scope, date_from, date_to):
         finance = cls._finance_data(env, companies, date_from, date_to)
         currency_symbol = cls._currency_symbol(companies)
-        cash_outflow_items = cls._top_breakdown_items(finance["cash_outflow_heads"])
-        bank_outflow_items = cls._top_breakdown_items(finance["bank_outflow_heads"])
-        combined_outflow_items = cls._top_breakdown_items(finance["total_outflow_heads"])
+        cash_outflow_items = cls._top_breakdown_items(finance["cash_outflow_heads"], aggregate_others=False)
+        bank_outflow_items = cls._top_breakdown_items(finance["bank_outflow_heads"], aggregate_others=False)
+        combined_outflow_items = cls._top_breakdown_items(finance["total_outflow_heads"], aggregate_others=False)
 
         return {
             "title": "Finance",
@@ -695,6 +696,7 @@ class DashboardAPIService:
                     "cash_outflow_heads",
                     "Where Cash Went",
                     cash_outflow_items,
+                    preview_limit=8,
                 ),
                 cls._chart(
                     "bank_position_summary",
@@ -710,11 +712,13 @@ class DashboardAPIService:
                     "bank_outflow_heads",
                     "Where Bank Went",
                     bank_outflow_items,
+                    preview_limit=8,
                 ),
                 cls._chart(
                     "total_outflow_heads",
                     "Overall Money Outflow Areas",
                     combined_outflow_items,
+                    preview_limit=8,
                 ),
             ],
             "tables": [],
@@ -734,7 +738,7 @@ class DashboardAPIService:
     def _build_cash(cls, env, companies, scope, date_from, date_to):
         finance = cls._finance_data(env, companies, date_from, date_to)
         currency_symbol = cls._currency_symbol(companies)
-        cash_outflow_items = cls._top_breakdown_items(finance["cash_outflow_heads"])
+        cash_outflow_items = cls._top_breakdown_items(finance["cash_outflow_heads"], aggregate_others=False)
         return {
             "title": "Cash",
             "kpis": [
@@ -763,6 +767,7 @@ class DashboardAPIService:
                     "cash_outflow_heads",
                     "Where Cash Went",
                     cash_outflow_items,
+                    preview_limit=8,
                 ),
             ],
             "tables": [
@@ -796,7 +801,7 @@ class DashboardAPIService:
     def _build_bank(cls, env, companies, scope, date_from, date_to):
         finance = cls._finance_data(env, companies, date_from, date_to)
         currency_symbol = cls._currency_symbol(companies)
-        bank_outflow_items = cls._top_breakdown_items(finance["bank_outflow_heads"])
+        bank_outflow_items = cls._top_breakdown_items(finance["bank_outflow_heads"], aggregate_others=False)
         return {
             "title": "Bank",
             "kpis": [
@@ -825,6 +830,7 @@ class DashboardAPIService:
                     "bank_outflow_heads",
                     "Where Bank Went",
                     bank_outflow_items,
+                    preview_limit=8,
                 ),
             ],
             "tables": [

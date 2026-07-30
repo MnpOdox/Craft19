@@ -8,6 +8,7 @@ const state = {
   dateFrom: localStorage.getItem("dashboard.dateFrom") || "",
   dateTo: localStorage.getItem("dashboard.dateTo") || "",
   chartPages: {},
+  chartExpanded: {},
 };
 
 const loginShell = document.getElementById("login-shell");
@@ -163,28 +164,39 @@ function renderCharts(charts) {
   (charts || []).forEach((chart) => {
     const panel = document.createElement("article");
     panel.className = "card panel";
-    const max = Math.max(...(chart.items || []).map((item) => Number(item.value || 0)), 1);
     const items = chart.items || [];
-    const totalPages = Math.max(Math.ceil(items.length / pageSize), 1);
+    const previewLimit = Number(chart.preview_limit || 0);
+    const isExpandable = previewLimit > 0 && items.length > previewLimit;
+    const isExpanded = Boolean(state.chartExpanded[chart.key]);
+    const sourceItems = isExpandable && !isExpanded ? items.slice(0, previewLimit) : items;
+    const max = Math.max(...sourceItems.map((item) => Number(item.value || 0)), 1);
+    const totalPages = Math.max(Math.ceil(sourceItems.length / pageSize), 1);
     const currentPage = Math.min(state.chartPages[chart.key] || 0, totalPages - 1);
     state.chartPages[chart.key] = currentPage;
 
     const renderChartPage = () => {
       const page = state.chartPages[chart.key] || 0;
       const start = page * pageSize;
-      const visibleItems = items.slice(start, start + pageSize);
+      const visibleItems = sourceItems.slice(start, start + pageSize);
       panel.innerHTML = `
         <div class="panel-head">
           <h3>${chart.title}</h3>
-          ${
-            items.length > pageSize
-              ? `<div class="panel-pagination">
+          <div class="panel-actions">
+            ${
+              isExpandable
+                ? `<button type="button" class="ghost-btn chart-expand-btn">${isExpanded ? "Show Less" : `Show All (${items.length})`}</button>`
+                : ""
+            }
+            ${
+              sourceItems.length > pageSize
+                ? `<div class="panel-pagination">
                   <button type="button" class="chart-page-btn" data-direction="-1" ${page === 0 ? "disabled" : ""}>Prev</button>
-                  <span class="chart-page-status">${start + 1}-${Math.min(start + pageSize, items.length)} of ${items.length}</span>
+                  <span class="chart-page-status">${start + 1}-${Math.min(start + pageSize, sourceItems.length)} of ${sourceItems.length}</span>
                   <button type="button" class="chart-page-btn" data-direction="1" ${page >= totalPages - 1 ? "disabled" : ""}>Next</button>
                 </div>`
               : ""
-          }
+            }
+          </div>
         </div>
         <div class="bar-list">
           ${visibleItems
@@ -199,6 +211,11 @@ function renderCharts(charts) {
             .join("")}
         </div>
       `;
+      panel.querySelector(".chart-expand-btn")?.addEventListener("click", () => {
+        state.chartExpanded[chart.key] = !isExpanded;
+        state.chartPages[chart.key] = 0;
+        renderCharts(charts);
+      });
       panel.querySelectorAll(".chart-page-btn").forEach((button) => {
         button.addEventListener("click", () => {
           const nextPage = page + Number(button.dataset.direction || 0);
