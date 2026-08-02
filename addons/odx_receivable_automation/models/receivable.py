@@ -1,6 +1,23 @@
 from odoo import api, fields, models
 
 
+class ResPartner(models.Model):
+    _inherit = "res.partner"
+
+    receivable_book_ids = fields.One2many(
+        "receivable.book", "partner_id", string="Receivable Books",
+    )
+    has_receivable_book = fields.Boolean(
+        string="Has Receivable Book",
+        compute="_compute_has_receivable_book", store=True, index=True,
+    )
+
+    @api.depends("receivable_book_ids")
+    def _compute_has_receivable_book(self):
+        for partner in self:
+            partner.has_receivable_book = bool(partner.receivable_book_ids)
+
+
 class ReceivableBook(models.Model):
     _inherit = "receivable.book"
 

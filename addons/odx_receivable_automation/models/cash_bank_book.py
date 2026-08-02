@@ -73,7 +73,10 @@ class CashBookLine(models.Model):
     _receivable_source_type = "cash_payment"
     _receivable_source_field = "cash_book_line_id"
 
-    partner_id = fields.Many2one("res.partner", string="Partner")
+    partner_id = fields.Many2one(
+        "res.partner", string="Partner",
+        domain=[("has_receivable_book", "=", True)],
+    )
     receivable_line_id = fields.Many2one(
         "receivable.book.line", string="Receivable Entry",
         readonly=True, copy=False, ondelete="set null",
@@ -87,7 +90,10 @@ class BankBookLine(models.Model):
     _receivable_source_type = "bank_payment"
     _receivable_source_field = "bank_book_line_id"
 
-    partner_id = fields.Many2one("res.partner", string="Partner")
+    partner_id = fields.Many2one(
+        "res.partner", string="Partner",
+        domain=[("has_receivable_book", "=", True)],
+    )
     receivable_line_id = fields.Many2one(
         "receivable.book.line", string="Receivable Entry",
         readonly=True, copy=False, ondelete="set null",

@@ -106,6 +106,21 @@ class TestReceivableAutomation(TransactionCase):
         })
         self.assertEqual(cash_line.sudo().receivable_line_id.amount, 10)
 
+    def test_payment_partner_domain_only_includes_receivable_partners(self):
+        partner_without_book = self.env["res.partner"].create({"name": "No Receivable Partner"})
+        self.env["receivable.book"].create({
+            "partner_id": self.vendor.id,
+            "company_id": self.env.company.id,
+            "state": "confirm",
+        })
+        self.assertTrue(self.vendor.has_receivable_book)
+        self.assertFalse(partner_without_book.has_receivable_book)
+        available = self.env["res.partner"].search([
+            ("has_receivable_book", "=", True),
+            ("id", "in", (self.vendor | partner_without_book).ids),
+        ])
+        self.assertEqual(available, self.vendor)
+
     def test_purchase_cancel_removes_automatic_line(self):
         self.purchase.button_confirm()
         self.purchase.button_cancel()
