@@ -8,14 +8,16 @@ class ResPartner(models.Model):
         "receivable.book", "partner_id", string="Receivable Books",
     )
     has_receivable_book = fields.Boolean(
-        string="Has Receivable Book",
+        string="Has Confirmed Receivable Book",
         compute="_compute_has_receivable_book", store=True, index=True,
     )
 
-    @api.depends("receivable_book_ids")
+    @api.depends("receivable_book_ids", "receivable_book_ids.state")
     def _compute_has_receivable_book(self):
         for partner in self:
-            partner.has_receivable_book = bool(partner.receivable_book_ids)
+            partner.has_receivable_book = any(
+                book.state == "confirm" for book in partner.receivable_book_ids
+            )
 
 
 class ReceivableBook(models.Model):
