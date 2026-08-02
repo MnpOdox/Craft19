@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_receivable_form_automation_sources" model="ir.ui.view">
+        <field name="name">receivable.book.form.automation.sources</field>
+        <field name="model">receivable.book</field>
+        <field name="inherit_id" ref="odx_books.view_book_receivable_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='receivable_line_ids']/list/field[@name='description']" position="after">
+                <field name="source_type" optional="show"/>
+                <field name="purchase_order_id" optional="show"/>
+                <field name="cash_book_line_id" optional="hide"/>
+                <field name="bank_book_line_id" optional="hide"/>
+            </xpath>
+            <xpath expr="//field[@name='receivable_line_ids']/form//field[@name='description']" position="after">
+                <field name="source_type" readonly="1"/>
+                <field name="purchase_order_id" readonly="1"/>
+                <field name="cash_book_line_id" readonly="1"/>
+                <field name="bank_book_line_id" readonly="1"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

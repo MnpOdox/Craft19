@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_book_head_form_receivable_automation" model="ir.ui.view">
+        <field name="name">book.head.form.receivable.automation</field>
+        <field name="model">book.head</field>
+        <field name="inherit_id" ref="odx_books.view_book_head_form"/>
+        <field name="arch" type="xml">
+            <field name="auto_expense" position="after">
+                <field name="auto_receivable_payment"/>
+            </field>
+        </field>
+    </record>
+</odoo>
