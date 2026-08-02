@@ -28,6 +28,10 @@ class ReceivableBook(models.Model):
 class ReceivableBookLine(models.Model):
     _inherit = "receivable.book.line"
 
+    partner_id = fields.Many2one(
+        "res.partner", string="Partner",
+        related="receivable_id.partner_id", store=True, readonly=True, index=True,
+    )
     source_type = fields.Selection([
         ("purchase", "Purchase"),
         ("cash_payment", "Cash Payment"),

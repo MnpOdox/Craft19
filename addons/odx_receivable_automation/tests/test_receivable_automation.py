@@ -48,6 +48,7 @@ class TestReceivableAutomation(TransactionCase):
         self.assertEqual(len(purchase_line), 1)
         purchase_total = self.purchase.amount_total
         self.assertEqual(purchase_line.amount, -purchase_total)
+        self.assertEqual(purchase_line.partner_id, self.vendor)
         self.assertEqual(purchase_line.receivable_id.partner_id, self.vendor)
 
         self.purchase._sync_receivable_purchase()

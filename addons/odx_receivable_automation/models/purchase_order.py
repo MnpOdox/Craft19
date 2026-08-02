@@ -74,11 +74,14 @@ class PurchaseOrder(models.Model):
 
     def action_open_receivable_lines(self):
         self.ensure_one()
+        list_view = self.env.ref("odx_receivable_automation.view_receivable_automation_line_list")
+        form_view = self.env.ref("odx_receivable_automation.view_receivable_automation_line_form")
         return {
             "type": "ir.actions.act_window",
             "name": _("Receivable Lines"),
             "res_model": "receivable.book.line",
             "view_mode": "list,form",
+            "views": [(list_view.id, "list"), (form_view.id, "form")],
             "domain": [("purchase_order_id", "=", self.id)],
             "context": {"create": False},
         }
