@@ -75,7 +75,7 @@ class CashBookLine(models.Model):
 
     partner_id = fields.Many2one(
         "res.partner", string="Partner",
-        domain=[("has_receivable_book", "=", True)],
+        domain=[("has_confirmed_receivable_book", "=", True)],
     )
     receivable_line_id = fields.Many2one(
         "receivable.book.line", string="Receivable Entry",
@@ -92,7 +92,7 @@ class BankBookLine(models.Model):
 
     partner_id = fields.Many2one(
         "res.partner", string="Partner",
-        domain=[("has_receivable_book", "=", True)],
+        domain=[("has_confirmed_receivable_book", "=", True)],
     )
     receivable_line_id = fields.Many2one(
         "receivable.book.line", string="Receivable Entry",

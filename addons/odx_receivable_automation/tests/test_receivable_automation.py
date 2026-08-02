@@ -113,18 +113,18 @@ class TestReceivableAutomation(TransactionCase):
             "company_id": self.env.company.id,
             "state": "confirm",
         })
-        self.assertTrue(self.vendor.has_receivable_book)
-        self.assertFalse(partner_without_book.has_receivable_book)
+        self.assertTrue(self.vendor.has_confirmed_receivable_book)
+        self.assertFalse(partner_without_book.has_confirmed_receivable_book)
         available = self.env["res.partner"].search([
-            ("has_receivable_book", "=", True),
+            ("has_confirmed_receivable_book", "=", True),
             ("id", "in", (self.vendor | partner_without_book).ids),
         ])
         self.assertEqual(available, self.vendor)
 
         confirmed_book.action_done()
-        self.assertFalse(self.vendor.has_receivable_book)
+        self.assertFalse(self.vendor.has_confirmed_receivable_book)
         self.assertFalse(self.env["res.partner"].search([
-            ("has_receivable_book", "=", True),
+            ("has_confirmed_receivable_book", "=", True),
             ("id", "=", self.vendor.id),
         ]))
 

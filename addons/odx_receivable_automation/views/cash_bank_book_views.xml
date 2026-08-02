@@ -7,12 +7,12 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='cash_line_ids']/list/field[@name='head_id']" position="after">
                 <field name="partner_id" optional="show"
-                       domain="[('has_receivable_book', '=', True)]"/>
+                       domain="[('has_confirmed_receivable_book', '=', True)]"/>
                 <field name="receivable_line_id" optional="hide" readonly="1"
                        groups="odx_books.group_receivable_book_user,odx_books.group_book_manager"/>
             </xpath>
             <xpath expr="//field[@name='cash_line_ids']/form//field[@name='head_id']" position="after">
-                <field name="partner_id" domain="[('has_receivable_book', '=', True)]"/>
+                <field name="partner_id" domain="[('has_confirmed_receivable_book', '=', True)]"/>
                 <field name="receivable_line_id" readonly="1"
                        groups="odx_books.group_receivable_book_user,odx_books.group_book_manager"/>
             </xpath>
@@ -26,12 +26,12 @@
         <field name="arch" type="xml">
             <xpath expr="//field[@name='bank_line_ids']/list/field[@name='head_id']" position="after">
                 <field name="partner_id" optional="show"
-                       domain="[('has_receivable_book', '=', True)]"/>
+                       domain="[('has_confirmed_receivable_book', '=', True)]"/>
                 <field name="receivable_line_id" optional="hide" readonly="1"
                        groups="odx_books.group_receivable_book_user,odx_books.group_book_manager"/>
             </xpath>
             <xpath expr="//field[@name='bank_line_ids']/form//field[@name='head_id']" position="after">
-                <field name="partner_id" domain="[('has_receivable_book', '=', True)]"/>
+                <field name="partner_id" domain="[('has_confirmed_receivable_book', '=', True)]"/>
                 <field name="receivable_line_id" readonly="1"
                        groups="odx_books.group_receivable_book_user,odx_books.group_book_manager"/>
             </xpath>
