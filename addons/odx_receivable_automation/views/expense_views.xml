@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_book_expense_tree_receivable_automation" model="ir.ui.view">
+        <field name="name">book.expense.tree.receivable.automation</field>
+        <field name="model">expense.book</field>
+        <field name="inherit_id" ref="odx_books.view_book_expense_tree"/>
+        <field name="arch" type="xml">
+            <field name="head_id" position="after">
+                <field name="partner_id" options="{'no_edit': True, 'no_create': True}"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_book_expense_search_receivable_automation" model="ir.ui.view">
+        <field name="name">book.expense.search.receivable.automation</field>
+        <field name="model">expense.book</field>
+        <field name="inherit_id" ref="odx_books.view_book_expense_search"/>
+        <field name="arch" type="xml">
+            <field name="head_id" position="after">
+                <field name="partner_id"/>
+            </field>
+        </field>
+    </record>
+</odoo>

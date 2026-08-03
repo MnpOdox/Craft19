@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="pos_payment_method_view_form_receivable_credit" model="ir.ui.view">
+        <field name="name">pos.payment.method.form.receivable.credit</field>
+        <field name="model">pos.payment.method</field>
+        <field name="inherit_id" ref="odx_pos_books.pos_payment_method_view_form_books"/>
+        <field name="arch" type="xml">
+            <field name="pos_book_excluded" position="after">
+                <field name="auto_receivable_credit_sale"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="pos_payment_method_view_list_receivable_credit" model="ir.ui.view">
+        <field name="name">pos.payment.method.list.receivable.credit</field>
+        <field name="model">pos.payment.method</field>
+        <field name="inherit_id" ref="odx_pos_books.pos_payment_method_view_list_books"/>
+        <field name="arch" type="xml">
+            <field name="pos_book_excluded" position="after">
+                <field name="auto_receivable_credit_sale" optional="hide"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_pos_session_form_receivable_credit" model="ir.ui.view">
+        <field name="name">pos.session.form.receivable.credit</field>
+        <field name="model">pos.session</field>
+        <field name="inherit_id" ref="odx_pos_books.view_pos_session_form_books"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_open_pos_credit_receivable_lines" type="object"
+                        class="oe_stat_button" icon="fa-credit-card"
+                        groups="odx_books.group_receivable_book_user,odx_books.group_book_manager"
+                        invisible="pos_credit_receivable_line_count == 0">
+                    <field name="pos_credit_receivable_line_count" widget="statinfo"
+                           string="Credit Receivables"/>
+                </button>
+            </xpath>
+            <field name="pos_book_sync_date" position="after">
+                <field name="credit_receivable_synced" readonly="1"/>
+                <field name="credit_receivable_sync_date" readonly="1"
+                       invisible="not credit_receivable_synced"/>
+            </field>
+        </field>
+    </record>
+</odoo>

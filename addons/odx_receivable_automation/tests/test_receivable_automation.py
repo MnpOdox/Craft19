@@ -25,10 +25,31 @@ class TestReceivableAutomation(TransactionCase):
             "cash": True,
             "bank": True,
             "expense": False,
-            "auto_receivable_payment": True,
+            "receivable_payment_effect": "payable_settlement",
+        })
+        cls.salary_head = cls.env["book.head"].create({
+            "head_name": "SALARY",
+            "cash": True,
+            "bank": True,
+            "expense": True,
+            "auto_expense": False,
+            "auto_receivable_expense": True,
+            "receivable_payment_effect": "payable_settlement",
+        })
+        cls.collection_head = cls.env["book.head"].create({
+            "head_name": "CASH COLLECTED",
+            "cash": True,
+            "bank": True,
+            "expense": False,
+            "receivable_payment_effect": "customer_receipt",
         })
         cls.cash_book = cls.env["cash.book"].create({"name": "Automation Cash Book"})
         cls.bank_book = cls.env["bank.book"].create({"name": "Automation Bank Book"})
+        cls.vendor_receivable = cls.env["receivable.book"].create({
+            "partner_id": cls.vendor.id,
+            "company_id": cls.env.company.id,
+            "state": "confirm",
+        })
         cls.cash_user = cls.env["res.users"].create({
             "name": "Automation Cash User",
             "login": "automation_cash_user",
@@ -96,6 +117,53 @@ class TestReceivableAutomation(TransactionCase):
                 "amount": 10,
             })
 
+    def test_salary_expense_and_payments(self):
+        employee = self.env["res.partner"].create({"name": "Salary Employee"})
+        employee_book = self.env["receivable.book"].create({
+            "partner_id": employee.id,
+            "company_id": self.env.company.id,
+            "state": "confirm",
+        })
+        expense = self.env["expense.book"].create({
+            "head_id": self.salary_head.id,
+            "partner_id": employee.id,
+            "description": "July salary",
+            "amount": 1000,
+        })
+        self.assertEqual(expense.receivable_line_id.amount, -1000)
+        self.assertEqual(expense.receivable_line_id.receivable_id, employee_book)
+        cash_line = self.env["cash.book.line"].create({
+            "name_id": self.cash_book.id,
+            "head_id": self.salary_head.id,
+            "partner_id": employee.id,
+            "amount": -600,
+        })
+        bank_line = self.env["bank.book.line"].create({
+            "name_id": self.bank_book.id,
+            "head_id": self.salary_head.id,
+            "partner_id": employee.id,
+            "amount": -400,
+        })
+        self.assertEqual(cash_line.receivable_line_id.amount, 600)
+        self.assertEqual(bank_line.receivable_line_id.amount, 400)
+        self.assertEqual(employee_book.balance, 0)
+
+    def test_customer_collection_creates_negative_receivable(self):
+        line = self.env["cash.book.line"].create({
+            "name_id": self.cash_book.id,
+            "head_id": self.collection_head.id,
+            "partner_id": self.vendor.id,
+            "amount": 75,
+        })
+        self.assertEqual(line.receivable_line_id.amount, -75)
+        with self.assertRaises(ValidationError):
+            self.env["bank.book.line"].create({
+                "name_id": self.bank_book.id,
+                "head_id": self.collection_head.id,
+                "partner_id": self.vendor.id,
+                "amount": -10,
+            })
+
     def test_cash_user_without_receivable_access_can_create_payment(self):
         cash_line = self.env["cash.book.line"].with_user(self.cash_user).create({
             "name_id": self.cash_book.id,
@@ -108,24 +176,25 @@ class TestReceivableAutomation(TransactionCase):
 
     def test_payment_partner_domain_only_includes_receivable_partners(self):
         partner_without_book = self.env["res.partner"].create({"name": "No Receivable Partner"})
+        domain_partner = self.env["res.partner"].create({"name": "Domain Partner"})
         confirmed_book = self.env["receivable.book"].create({
-            "partner_id": self.vendor.id,
+            "partner_id": domain_partner.id,
             "company_id": self.env.company.id,
             "state": "confirm",
         })
-        self.assertTrue(self.vendor.has_confirmed_receivable_book)
+        self.assertTrue(domain_partner.has_confirmed_receivable_book)
         self.assertFalse(partner_without_book.has_confirmed_receivable_book)
         available = self.env["res.partner"].search([
             ("has_confirmed_receivable_book", "=", True),
-            ("id", "in", (self.vendor | partner_without_book).ids),
+            ("id", "in", (domain_partner | partner_without_book).ids),
         ])
-        self.assertEqual(available, self.vendor)
+        self.assertEqual(available, domain_partner)
 
         confirmed_book.action_done()
-        self.assertFalse(self.vendor.has_confirmed_receivable_book)
+        self.assertFalse(domain_partner.has_confirmed_receivable_book)
         self.assertFalse(self.env["res.partner"].search([
             ("has_confirmed_receivable_book", "=", True),
-            ("id", "=", self.vendor.id),
+            ("id", "=", domain_partner.id),
         ]))
 
     def test_purchase_cancel_removes_automatic_line(self):

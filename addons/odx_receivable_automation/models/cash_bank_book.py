@@ -11,14 +11,16 @@ class ReceivablePaymentMixin(models.AbstractModel):
 
     def _prepare_receivable_payment_vals(self):
         self.ensure_one()
-        book = self.env["receivable.book"]._get_or_create_automation_book(
+        book = self.env["receivable.book"]._get_confirmed_automation_book(
             self.partner_id, self.company_id
         )
+        effect = self.head_id.receivable_payment_effect
+        receivable_amount = abs(self.amount) if effect == "payable_settlement" else -abs(self.amount)
         return {
             "receivable_id": book.id,
             "date": self.date,
             "description": self.description or self.head_id.head_name,
-            "amount": abs(self.amount),
+            "amount": receivable_amount,
             "company_id": self.company_id.id,
             "source_type": self._receivable_source_type,
             self._receivable_source_field: self.id,
@@ -30,7 +32,8 @@ class ReceivablePaymentMixin(models.AbstractModel):
         line_model = self.env["receivable.book.line"].sudo()
         for record in self:
             line = record.sudo().receivable_line_id
-            enabled = bool(record.head_id.auto_receivable_payment)
+            effect = record.head_id.receivable_payment_effect
+            enabled = effect and effect != "none"
             if not enabled:
                 if line:
                     record.sudo().with_context(skip_receivable_payment_sync=True).write({"receivable_line_id": False})
@@ -38,8 +41,14 @@ class ReceivablePaymentMixin(models.AbstractModel):
                 continue
             if not record.partner_id:
                 raise ValidationError(_("Select a Partner for this Receivable payment."))
-            if record.amount >= 0:
-                raise ValidationError(_("A Receivable payment must be entered as a negative Cash/Bank amount."))
+            if effect == "payable_settlement" and record.amount >= 0:
+                raise ValidationError(_(
+                    "A Payable / Salary settlement must be entered as a negative Cash/Bank amount."
+                ))
+            if effect == "customer_receipt" and record.amount <= 0:
+                raise ValidationError(_(
+                    "A Customer Credit receipt must be entered as a positive Cash/Bank amount."
+                ))
             vals = record._prepare_receivable_payment_vals()
             if line:
                 line.write(vals)

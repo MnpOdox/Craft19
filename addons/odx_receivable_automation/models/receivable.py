@@ -1,4 +1,5 @@
-from odoo import api, fields, models
+from odoo import api, fields, models, _
+from odoo.exceptions import ValidationError
 
 
 class ResPartner(models.Model):
@@ -43,6 +44,21 @@ class ReceivableBook(models.Model):
             })
         return book
 
+    @api.model
+    def _get_confirmed_automation_book(self, partner, company):
+        book = self.sudo().search([
+            ("partner_id", "=", partner.id),
+            ("company_id", "=", company.id),
+            ("state", "=", "confirm"),
+        ], order="id desc", limit=1)
+        if not book:
+            raise ValidationError(_(
+                "Partner %(partner)s does not have a Confirmed Receivable Book for %(company)s.",
+                partner=partner.display_name,
+                company=company.display_name,
+            ))
+        return book
+
 
 class ReceivableBookLine(models.Model):
     _inherit = "receivable.book.line"
@@ -55,6 +71,8 @@ class ReceivableBookLine(models.Model):
         ("purchase", "Purchase"),
         ("cash_payment", "Cash Payment"),
         ("bank_payment", "Bank Payment"),
+        ("salary_expense", "Salary Expense"),
+        ("credit_sale", "Credit Sale"),
     ], string="Source", readonly=True, copy=False)
     purchase_order_id = fields.Many2one(
         "purchase.order", string="Purchase Order", readonly=True, copy=False,
@@ -68,6 +86,18 @@ class ReceivableBookLine(models.Model):
         "bank.book.line", string="Bank Book Line", readonly=True, copy=False,
         ondelete="cascade", index=True,
     )
+    expense_book_id = fields.Many2one(
+        "expense.book", string="Expense", readonly=True, copy=False,
+        ondelete="cascade", index=True,
+    )
+    pos_order_id = fields.Many2one(
+        "pos.order", string="POS Order", readonly=True, copy=False,
+        ondelete="cascade", index=True,
+    )
+    pos_session_id = fields.Many2one(
+        "pos.session", string="POS Session",
+        related="pos_order_id.session_id", store=True, readonly=True, index=True,
+    )
 
     _purchase_source_unique = models.Constraint(
         "UNIQUE(purchase_order_id)",
@@ -80,4 +110,12 @@ class ReceivableBookLine(models.Model):
     _bank_source_unique = models.Constraint(
         "UNIQUE(bank_book_line_id)",
         "A Bank Book line can create only one Receivable line.",
+    )
+    _expense_source_unique = models.Constraint(
+        "UNIQUE(expense_book_id)",
+        "An Expense can create only one Receivable line.",
+    )
+    _pos_order_source_unique = models.Constraint(
+        "UNIQUE(pos_order_id)",
+        "A POS Order can create only one Credit Sale Receivable line.",
     )

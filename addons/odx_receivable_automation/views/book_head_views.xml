@@ -6,7 +6,8 @@
         <field name="inherit_id" ref="odx_books.view_book_head_form"/>
         <field name="arch" type="xml">
             <field name="auto_expense" position="after">
-                <field name="auto_receivable_payment"/>
+                <field name="receivable_payment_effect"/>
+                <field name="auto_receivable_expense"/>
             </field>
         </field>
     </record>

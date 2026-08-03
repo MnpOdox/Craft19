@@ -11,6 +11,9 @@
             <xpath expr="//field[@name='receivable_line_ids']/list/field[@name='description']" position="after">
                 <field name="source_type" optional="show"/>
                 <field name="purchase_order_id" optional="show"/>
+                <field name="expense_book_id" optional="show"/>
+                <field name="pos_order_id" optional="show"/>
+                <field name="pos_session_id" optional="hide"/>
                 <field name="cash_book_line_id" optional="hide"/>
                 <field name="bank_book_line_id" optional="hide"/>
             </xpath>
@@ -20,6 +23,9 @@
             <xpath expr="//field[@name='receivable_line_ids']/form//field[@name='description']" position="after">
                 <field name="source_type" readonly="1"/>
                 <field name="purchase_order_id" readonly="1"/>
+                <field name="expense_book_id" readonly="1"/>
+                <field name="pos_order_id" readonly="1"/>
+                <field name="pos_session_id" readonly="1"/>
                 <field name="cash_book_line_id" readonly="1"/>
                 <field name="bank_book_line_id" readonly="1"/>
             </xpath>
@@ -37,6 +43,9 @@
                 <field name="source_type"/>
                 <field name="amount" sum="Total"/>
                 <field name="purchase_order_id" optional="show"/>
+                <field name="expense_book_id" optional="show"/>
+                <field name="pos_order_id" optional="show"/>
+                <field name="pos_session_id" optional="hide"/>
                 <field name="cash_book_line_id" optional="hide"/>
                 <field name="bank_book_line_id" optional="hide"/>
                 <field name="receivable_id" optional="hide"/>
@@ -61,6 +70,9 @@
                         <group>
                             <field name="source_type"/>
                             <field name="purchase_order_id"/>
+                            <field name="expense_book_id"/>
+                            <field name="pos_order_id"/>
+                            <field name="pos_session_id"/>
                             <field name="cash_book_line_id"/>
                             <field name="bank_book_line_id"/>
                             <field name="receivable_id"/>
