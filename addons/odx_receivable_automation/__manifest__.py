@@ -8,6 +8,7 @@
     "data": [
         "security/ir.model.access.csv",
         "views/book_head_views.xml",
+        "views/menu_views.xml",
         "views/cash_bank_book_views.xml",
         "views/expense_views.xml",
         "views/pos_credit_views.xml",

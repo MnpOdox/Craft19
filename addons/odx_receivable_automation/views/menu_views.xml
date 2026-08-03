@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="odx_books.menu_books_root" model="ir.ui.menu">
+        <field name="name">Books</field>
+        <field name="sequence">5</field>
+    </record>
+
+    <record id="menu_book_transactions" model="ir.ui.menu">
+        <field name="name">Transaction</field>
+        <field name="parent_id" ref="odx_books.menu_book_root"/>
+        <field name="sequence">10</field>
+        <field name="group_ids" eval="[(6, 0, [ref('odx_books.group_book_manager')])]"/>
+    </record>
+
+    <record id="odx_books.menu_cash_books" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_book_transactions"/>
+        <field name="group_ids" eval="[(6, 0, [ref('odx_books.group_book_manager')])]"/>
+    </record>
+
+    <record id="odx_books.menu_bank_books" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_book_transactions"/>
+        <field name="group_ids" eval="[(6, 0, [ref('odx_books.group_book_manager')])]"/>
+    </record>
+
+    <record id="odx_books.menu_book_expense" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_book_transactions"/>
+        <field name="group_ids" eval="[(6, 0, [ref('odx_books.group_book_manager')])]"/>
+    </record>
+
+    <record id="odx_books.menu_receivable_books" model="ir.ui.menu">
+        <field name="parent_id" ref="menu_book_transactions"/>
+        <field name="group_ids" eval="[(6, 0, [ref('odx_books.group_book_manager')])]"/>
+    </record>
+
+    <record id="odx_books.menu_configuration" model="ir.ui.menu">
+        <field name="sequence">15</field>
+        <field name="group_ids" eval="[(6, 0, [ref('odx_books.group_book_manager')])]"/>
+    </record>
+</odoo>
