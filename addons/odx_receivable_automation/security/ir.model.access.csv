@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_daily_transaction_cash_user,daily.transaction.cash.user,model_daily_book_transaction,odx_books.group_cash_book_user,1,1,1,1
+access_daily_transaction_bank_user,daily.transaction.bank.user,model_daily_book_transaction,odx_books.group_bank_book_user,1,1,1,1
+access_daily_transaction_expense_user,daily.transaction.expense.user,model_daily_book_transaction,odx_books.group_expense_book_user,1,1,1,1
+access_daily_transaction_manager,daily.transaction.manager,model_daily_book_transaction,odx_books.group_book_manager,1,1,1,1

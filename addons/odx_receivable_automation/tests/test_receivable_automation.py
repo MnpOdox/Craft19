@@ -43,8 +43,14 @@ class TestReceivableAutomation(TransactionCase):
             "expense": False,
             "receivable_payment_effect": "customer_receipt",
         })
-        cls.cash_book = cls.env["cash.book"].create({"name": "Automation Cash Book"})
-        cls.bank_book = cls.env["bank.book"].create({"name": "Automation Bank Book"})
+        cls.cash_book = cls.env["cash.book"].create({
+            "name": "Automation Cash Book",
+            "state": "confirm",
+        })
+        cls.bank_book = cls.env["bank.book"].create({
+            "name": "Automation Bank Book",
+            "state": "confirm",
+        })
         cls.vendor_receivable = cls.env["receivable.book"].create({
             "partner_id": cls.vendor.id,
             "company_id": cls.env.company.id,
@@ -163,6 +169,31 @@ class TestReceivableAutomation(TransactionCase):
                 "partner_id": self.vendor.id,
                 "amount": -10,
             })
+
+    def test_daily_transaction_cash_out_uses_positive_staff_amount(self):
+        wizard = self.env["daily.book.transaction"].create({
+            "transaction_type": "cash_out",
+            "head_id": self.payment_head.id,
+            "partner_id": self.vendor.id,
+            "amount": 25,
+            "cash_book_id": self.cash_book.id,
+            "description": "Easy cash payment",
+        })
+        line = wizard._create_transaction()
+        self.assertEqual(line.amount, -25)
+        self.assertEqual(line.receivable_line_id.amount, 25)
+        self.assertEqual(line.name_id, self.cash_book)
+
+    def test_daily_transaction_salary_expense(self):
+        wizard = self.env["daily.book.transaction"].create({
+            "transaction_type": "expense",
+            "head_id": self.salary_head.id,
+            "partner_id": self.vendor.id,
+            "amount": 500,
+        })
+        expense = wizard._create_transaction()
+        self.assertEqual(expense.amount, 500)
+        self.assertEqual(expense.receivable_line_id.amount, -500)
 
     def test_cash_user_without_receivable_access_can_create_payment(self):
         cash_line = self.env["cash.book.line"].with_user(self.cash_user).create({
