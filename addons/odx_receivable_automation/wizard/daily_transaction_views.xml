@@ -81,18 +81,18 @@
               name="New Expense"
               parent="odx_books.menu_books_root"
               action="action_daily_expense"
-              sequence="1"
+              sequence="50"
               groups="odx_books.group_expense_book_user,odx_books.group_book_manager"/>
     <menuitem id="menu_daily_cash_transaction"
               name="Cash In/Out"
               parent="odx_books.menu_books_root"
               action="action_daily_cash_transaction"
-              sequence="2"
+              sequence="60"
               groups="odx_books.group_cash_book_user,odx_books.group_book_manager"/>
     <menuitem id="menu_daily_bank_transaction"
               name="Bank In/Out"
               parent="odx_books.menu_books_root"
               action="action_daily_bank_transaction"
-              sequence="3"
+              sequence="70"
               groups="odx_books.group_bank_book_user,odx_books.group_book_manager"/>
 </odoo>
