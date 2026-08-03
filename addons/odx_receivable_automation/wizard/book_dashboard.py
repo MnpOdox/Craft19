@@ -24,6 +24,70 @@ class DailyBookDashboard(models.TransientModel):
     )
 
     @api.model
+    def get_dashboard_data(self):
+        company = self.env.company
+        currency = company.currency_id
+        today = fields.Date.context_today(self)
+        month_start = today.replace(day=1)
+        month_end = month_start + relativedelta(months=1, days=-1)
+        cash_books = self.env["cash.book"].sudo().search([
+            ("company_id", "=", company.id),
+            ("state", "=", "confirm"),
+        ])
+        bank_books = self.env["bank.book"].sudo().search([
+            ("company_id", "=", company.id),
+            ("state", "=", "confirm"),
+        ], order="name, id")
+        expense_groups = self.env["expense.book"].sudo()._read_group(
+            domain=[
+                ("company_id", "=", company.id),
+                ("date", ">=", month_start),
+                ("date", "<=", month_end),
+            ],
+            groupby=["head_id"],
+            aggregates=["amount:sum"],
+        )
+        expenses = sorted(
+            ((head, amount) for head, amount in expense_groups if head),
+            key=lambda item: item[1], reverse=True,
+        )
+        receivable_books = self.env["receivable.book"].sudo().search([
+            ("company_id", "=", company.id),
+            ("state", "=", "confirm"),
+        ]).filtered(lambda book: book.balance < 0).sorted(
+            key=lambda book: book.balance
+        )
+        return {
+            "company_name": company.display_name,
+            "month_label": month_start.strftime("%B %Y"),
+            "currency": {
+                "symbol": currency.symbol or currency.name,
+                "position": currency.position,
+                "digits": currency.decimal_places,
+            },
+            "cash_balance": sum(cash_books.mapped("cur_balance")),
+            "cash_book_count": len(cash_books),
+            "banks": [{
+                "id": book.id,
+                "name": book.name,
+                "balance": book.cur_balance,
+            } for book in bank_books],
+            "bank_total": sum(bank_books.mapped("cur_balance")),
+            "expenses": [{
+                "id": head.id,
+                "name": head.head_name,
+                "amount": amount,
+            } for head, amount in expenses],
+            "expense_total": sum(amount for _head, amount in expenses),
+            "receivables": [{
+                "id": book.id,
+                "partner": book.partner_id.display_name,
+                "amount": book.balance,
+            } for book in receivable_books],
+            "receivable_total": sum(receivable_books.mapped("balance")),
+        }
+
+    @api.model
     def action_open_dashboard(self):
         company = self.env.company
         today = fields.Date.context_today(self)

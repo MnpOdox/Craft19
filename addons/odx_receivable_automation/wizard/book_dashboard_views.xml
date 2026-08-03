@@ -62,17 +62,15 @@
         </field>
     </record>
 
-    <record id="action_open_daily_book_dashboard" model="ir.actions.server">
+    <record id="action_books_dashboard_client" model="ir.actions.client">
         <field name="name">Books Dashboard</field>
-        <field name="model_id" ref="model_daily_book_dashboard"/>
-        <field name="state">code</field>
-        <field name="code">action = model.action_open_dashboard()</field>
+        <field name="tag">odx_receivable_automation.BooksDashboard</field>
     </record>
 
     <menuitem id="menu_daily_book_dashboard"
               name="Dashboard"
               parent="odx_books.menu_books_root"
-              action="action_open_daily_book_dashboard"
+              action="action_books_dashboard_client"
               sequence="1"
               groups="odx_books.group_cash_book_user,odx_books.group_bank_book_user,odx_books.group_expense_book_user,odx_books.group_receivable_book_user,odx_books.group_book_manager"/>
 </odoo>

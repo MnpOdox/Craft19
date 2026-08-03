@@ -1,6 +1,6 @@
 {
     "name": "Receivable Purchase and Payment Automation",
-    "version": "19.0.4.0.0",
+    "version": "19.0.5.0.0",
     "summary": "Synchronize purchases, salary, payments, and POS credit sales with Receivable Books",
     "author": "Odox SoftHub",
     "license": "LGPL-3",
@@ -17,6 +17,13 @@
         "wizard/daily_transaction_views.xml",
         "wizard/book_dashboard_views.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "odx_receivable_automation/static/src/js/books_dashboard.js",
+            "odx_receivable_automation/static/src/xml/books_dashboard.xml",
+            "odx_receivable_automation/static/src/scss/books_dashboard.scss",
+        ],
+    },
     "installable": True,
     "application": False,
 }

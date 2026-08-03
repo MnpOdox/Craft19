@@ -1,0 +1,130 @@
+.o_books_dashboard {
+    --books-purple: #6952a3;
+    --books-purple-dark: #44336f;
+    --books-green: #158467;
+    --books-blue: #2774b8;
+    --books-orange: #d97706;
+    --books-red: #c23b4a;
+    min-height: 100%;
+    padding: 28px;
+    background: #f5f6fa;
+    color: #202434;
+
+    .o_books_loading {
+        min-height: 60vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        color: #6b7280;
+        font-size: 16px;
+        i { color: var(--books-purple); font-size: 25px; }
+    }
+
+    .o_books_hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 28px 32px;
+        border-radius: 20px;
+        color: #fff;
+        background:
+            radial-gradient(circle at 92% 20%, rgba(255,255,255,.18), transparent 27%),
+            linear-gradient(125deg, var(--books-purple-dark), #8067bd);
+        box-shadow: 0 12px 30px rgba(68, 51, 111, .22);
+        .o_books_eyebrow { font-size: 11px; font-weight: 800; letter-spacing: 1.8px; opacity: .75; }
+        h1 { margin: 5px 0 6px; color: #fff; font-size: 30px; font-weight: 750; }
+        p { margin: 0; opacity: .88; font-size: 14px; }
+        .o_books_dot { margin: 0 9px; opacity: .55; }
+    }
+
+    .o_books_refresh {
+        border: 1px solid rgba(255,255,255,.35);
+        border-radius: 10px;
+        padding: 10px 16px;
+        color: #fff;
+        background: rgba(255,255,255,.12);
+        font-weight: 650;
+        transition: .2s ease;
+        i { margin-right: 7px; }
+        &:hover { background: rgba(255,255,255,.22); transform: translateY(-1px); }
+    }
+
+    .o_books_actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin: 20px 0;
+    }
+    .o_books_action {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        min-height: 72px;
+        padding: 13px 16px;
+        border: 1px solid #e4e6ee;
+        border-radius: 14px;
+        background: #fff;
+        text-align: left;
+        box-shadow: 0 3px 12px rgba(31, 36, 52, .05);
+        transition: .2s ease;
+        &:hover { transform: translateY(-2px); box-shadow: 0 9px 22px rgba(31,36,52,.1); }
+        .o_action_icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 11px; font-size: 18px; }
+        strong, small { display: block; }
+        strong { color: #252938; font-size: 15px; }
+        small { margin-top: 3px; color: #8a8f9d; }
+        .o_action_arrow { margin-left: auto; color: #adb1bc; }
+    }
+    .o_expense_action .o_action_icon { color: #b55b00; background: #fff1df; }
+    .o_cash_action .o_action_icon { color: #087259; background: #ddf6ee; }
+    .o_bank_action .o_action_icon { color: #2467a5; background: #e2effc; }
+
+    .o_books_kpis {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+    }
+    .o_kpi_card {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        min-height: 126px;
+        padding: 20px;
+        border: 1px solid #e5e7ee;
+        border-radius: 16px;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(31,36,52,.05);
+        .o_kpi_icon { display: grid; place-items: center; width: 48px; height: 48px; flex: 0 0 48px; border-radius: 14px; font-size: 20px; }
+        span, strong, small { display: block; }
+        span { color: #7b8190; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+        strong { margin: 5px 0 2px; color: #242836; font-size: 22px; line-height: 1.2; }
+        small { color: #9ca0ab; }
+    }
+    .o_cash_kpi .o_kpi_icon { color: var(--books-green); background: #def5ed; }
+    .o_bank_total_kpi .o_kpi_icon { color: var(--books-blue); background: #e2effb; }
+    .o_expense_kpi .o_kpi_icon { color: var(--books-orange); background: #fff0dc; }
+    .o_due_kpi .o_kpi_icon { color: var(--books-red); background: #fbe5e8; }
+
+    .o_books_bank_grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin: 16px 0 22px; }
+    .o_bank_card { display: flex; align-items: center; gap: 12px; padding: 14px 17px; border: 1px solid #dce7f2; border-radius: 13px; background: #f7fbff; .o_bank_symbol { color: var(--books-blue); font-size: 18px; } span,strong { display:block; } span { color:#747b89; font-size:12px; } strong { margin-top:2px; font-size:17px; } }
+
+    .o_books_tables { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; }
+    .o_books_panel { overflow: hidden; border: 1px solid #e3e5ec; border-radius: 17px; background:#fff; box-shadow:0 4px 14px rgba(31,36,52,.05); > header { display:flex; align-items:center; justify-content:space-between; padding:20px 22px; border-bottom:1px solid #eceef3; > div { display:flex; align-items:center; gap:12px; } h2 { margin:0; font-size:17px; font-weight:750; } p { margin:3px 0 0; color:#969aa5; font-size:12px; } } }
+    .o_panel_icon { display:grid; place-items:center; width:40px; height:40px; border-radius:11px; }
+    .o_expense_panel_icon { color:var(--books-orange); background:#fff0dc; }
+    .o_due_panel_icon { color:var(--books-red); background:#fbe5e8; }
+    .o_panel_total { font-size:17px; font-weight:750; }
+    .o_negative { color:var(--books-red) !important; }
+    .o_table_head,.o_table_row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:15px; padding:11px 22px; }
+    .o_table_head { color:#969aa5; background:#fafbfc; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.55px; }
+    .o_table_row { min-height:49px; border-top:1px solid #f0f1f4; &:hover { background:#faf9fd; } > span { display:flex; align-items:center; gap:10px; min-width:0; } > span > i { color:#e3a24c; font-size:7px; } strong { white-space:nowrap; } }
+    .o_partner_avatar { display:grid !important; place-items:center; width:28px; height:28px; flex:0 0 28px; border-radius:50%; color:#fff; background:linear-gradient(145deg,#8067bd,#5b478e); font-size:11px; font-weight:800; }
+    .o_books_empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:150px; color:#9ca1ac; i { color:#4eaf8b; font-size:26px; } }
+}
+
+@media (max-width: 1100px) {
+    .o_books_dashboard { .o_books_kpis { grid-template-columns:repeat(2,minmax(0,1fr)); } .o_books_tables { grid-template-columns:1fr; } }
+}
+@media (max-width: 700px) {
+    .o_books_dashboard { padding:14px; .o_books_hero { padding:22px; } .o_books_actions,.o_books_kpis,.o_books_bank_grid { grid-template-columns:1fr; } .o_books_refresh { align-self:flex-start; } .o_books_hero { align-items:flex-start; gap:18px; flex-direction:column; } }
+}

@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="odx_receivable_automation.BooksDashboard">
+        <div class="o_books_dashboard">
+            <t t-if="state.loading">
+                <div class="o_books_loading">
+                    <i class="fa fa-circle-o-notch fa-spin"/>
+                    <span>Loading your books…</span>
+                </div>
+            </t>
+            <t t-else="">
+                <section class="o_books_hero">
+                    <div>
+                        <span class="o_books_eyebrow">FINANCE OVERVIEW</span>
+                        <h1>Books Dashboard</h1>
+                        <p>
+                            <i class="fa fa-building-o me-2"/>
+                            <t t-esc="state.data.company_name"/>
+                            <span class="o_books_dot">•</span>
+                            <t t-esc="state.data.month_label"/>
+                        </p>
+                    </div>
+                    <button class="o_books_refresh" t-on-click="loadDashboard">
+                        <i class="fa fa-refresh" t-att-class="{'fa-spin': state.loading}"/>
+                        Refresh
+                    </button>
+                </section>
+
+                <section class="o_books_actions">
+                    <button class="o_books_action o_expense_action" t-on-click="openExpense">
+                        <span class="o_action_icon"><i class="fa fa-file-text-o"/></span>
+                        <span><strong>New Expense</strong><small>Record an expense</small></span>
+                        <i class="fa fa-arrow-right o_action_arrow"/>
+                    </button>
+                    <button class="o_books_action o_cash_action" t-on-click="openCash">
+                        <span class="o_action_icon"><i class="fa fa-money"/></span>
+                        <span><strong>Cash In/Out</strong><small>Update the cash book</small></span>
+                        <i class="fa fa-arrow-right o_action_arrow"/>
+                    </button>
+                    <button class="o_books_action o_bank_action" t-on-click="openBank">
+                        <span class="o_action_icon"><i class="fa fa-bank"/></span>
+                        <span><strong>Bank In/Out</strong><small>Update a bank book</small></span>
+                        <i class="fa fa-arrow-right o_action_arrow"/>
+                    </button>
+                </section>
+
+                <section class="o_books_kpis">
+                    <article class="o_kpi_card o_cash_kpi">
+                        <div class="o_kpi_icon"><i class="fa fa-money"/></div>
+                        <div>
+                            <span>Current Cash Balance</span>
+                            <strong t-esc="formatAmount(state.data.cash_balance)"/>
+                            <small><t t-esc="state.data.cash_book_count"/> active cash book(s)</small>
+                        </div>
+                    </article>
+                    <article class="o_kpi_card o_bank_total_kpi">
+                        <div class="o_kpi_icon"><i class="fa fa-bank"/></div>
+                        <div>
+                            <span>Total Bank Balance</span>
+                            <strong t-esc="formatAmount(state.data.bank_total)"/>
+                            <small><t t-esc="state.data.banks.length"/> active bank book(s)</small>
+                        </div>
+                    </article>
+                    <article class="o_kpi_card o_expense_kpi">
+                        <div class="o_kpi_icon"><i class="fa fa-line-chart"/></div>
+                        <div>
+                            <span>Expenses This Month</span>
+                            <strong t-esc="formatAmount(state.data.expense_total)"/>
+                            <small t-esc="state.data.month_label"/>
+                        </div>
+                    </article>
+                    <article class="o_kpi_card o_due_kpi">
+                        <div class="o_kpi_icon"><i class="fa fa-users"/></div>
+                        <div>
+                            <span>Outstanding Receivables</span>
+                            <strong t-esc="formatAmount(state.data.receivable_total)"/>
+                            <small><t t-esc="state.data.receivables.length"/> open balance(s)</small>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="o_books_bank_grid">
+                    <t t-foreach="state.data.banks" t-as="bank" t-key="bank.id">
+                        <article class="o_bank_card">
+                            <div class="o_bank_symbol"><i class="fa fa-university"/></div>
+                            <div><span t-esc="bank.name"/><strong t-esc="formatAmount(bank.balance)"/></div>
+                        </article>
+                    </t>
+                </section>
+
+                <section class="o_books_tables">
+                    <article class="o_books_panel">
+                        <header>
+                            <div><span class="o_panel_icon o_expense_panel_icon"><i class="fa fa-bar-chart"/></span><div><h2>Monthly Expenses</h2><p>Highest spending Heads first</p></div></div>
+                            <span class="o_panel_total" t-esc="formatAmount(state.data.expense_total)"/>
+                        </header>
+                        <div class="o_books_table" t-if="state.data.expenses.length">
+                            <div class="o_table_head"><span>Head</span><span>Amount</span></div>
+                            <div class="o_table_row" t-foreach="state.data.expenses" t-as="expense" t-key="expense.id">
+                                <span><i class="fa fa-circle"/><t t-esc="expense.name"/></span>
+                                <strong t-esc="formatAmount(expense.amount)"/>
+                            </div>
+                        </div>
+                        <div class="o_books_empty" t-else=""><i class="fa fa-check-circle"/><span>No expenses recorded this month</span></div>
+                    </article>
+
+                    <article class="o_books_panel">
+                        <header>
+                            <div><span class="o_panel_icon o_due_panel_icon"><i class="fa fa-address-book"/></span><div><h2>Outstanding Receivables</h2><p>Largest negative balance first</p></div></div>
+                            <span class="o_panel_total o_negative" t-esc="formatAmount(state.data.receivable_total)"/>
+                        </header>
+                        <div class="o_books_table" t-if="state.data.receivables.length">
+                            <div class="o_table_head"><span>Partner</span><span>Balance</span></div>
+                            <div class="o_table_row" t-foreach="state.data.receivables" t-as="receivable" t-key="receivable.id">
+                                <span><span class="o_partner_avatar"><t t-esc="receivable.partner.substring(0, 1).toUpperCase()"/></span><t t-esc="receivable.partner"/></span>
+                                <strong class="o_negative" t-esc="formatAmount(receivable.amount)"/>
+                            </div>
+                        </div>
+                        <div class="o_books_empty" t-else=""><i class="fa fa-check-circle"/><span>No outstanding negative balances</span></div>
+                    </article>
+                </section>
+            </t>
+        </div>
+    </t>
+</templates>
