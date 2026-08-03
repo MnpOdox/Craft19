@@ -3,3 +3,7 @@ access_daily_transaction_cash_user,daily.transaction.cash.user,model_daily_book_
 access_daily_transaction_bank_user,daily.transaction.bank.user,model_daily_book_transaction,odx_books.group_bank_book_user,1,1,1,1
 access_daily_transaction_expense_user,daily.transaction.expense.user,model_daily_book_transaction,odx_books.group_expense_book_user,1,1,1,1
 access_daily_transaction_manager,daily.transaction.manager,model_daily_book_transaction,odx_books.group_book_manager,1,1,1,1
+access_daily_dashboard_user,daily.dashboard.user,model_daily_book_dashboard,base.group_user,1,1,1,1
+access_daily_dashboard_bank_user,daily.dashboard.bank.user,model_daily_book_dashboard_bank,base.group_user,1,1,1,1
+access_daily_dashboard_expense_user,daily.dashboard.expense.user,model_daily_book_dashboard_expense,base.group_user,1,1,1,1
+access_daily_dashboard_receivable_user,daily.dashboard.receivable.user,model_daily_book_dashboard_receivable,base.group_user,1,1,1,1

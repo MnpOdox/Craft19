@@ -195,6 +195,30 @@ class TestReceivableAutomation(TransactionCase):
         self.assertEqual(expense.amount, 500)
         self.assertEqual(expense.receivable_line_id.amount, -500)
 
+    def test_books_dashboard_summaries_and_ordering(self):
+        self.env["bank.book.line"].create({
+            "name_id": self.bank_book.id,
+            "head_id": self.collection_head.id,
+            "partner_id": self.vendor.id,
+            "amount": 75,
+        })
+        self.env["expense.book"].create({
+            "head_id": self.salary_head.id,
+            "partner_id": self.vendor.id,
+            "amount": 250,
+        })
+        action = self.env["daily.book.dashboard"].action_open_dashboard()
+        dashboard = self.env["daily.book.dashboard"].browse(action["res_id"])
+        self.assertTrue(dashboard.exists())
+        self.assertIn(self.bank_book, dashboard.bank_balance_line_ids.mapped("bank_book_id"))
+        salary_summary = dashboard.expense_summary_line_ids.filtered(
+            lambda line: line.head_id == self.salary_head
+        )
+        self.assertTrue(salary_summary)
+        self.assertGreaterEqual(salary_summary.amount, 250)
+        amounts = dashboard.receivable_summary_line_ids.mapped("amount")
+        self.assertEqual(amounts, sorted(amounts))
+
     def test_cash_user_without_receivable_access_can_create_payment(self):
         cash_line = self.env["cash.book.line"].with_user(self.cash_user).create({
             "name_id": self.cash_book.id,

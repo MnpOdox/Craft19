@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_daily_book_dashboard_form" model="ir.ui.view">
+        <field name="name">daily.book.dashboard.form</field>
+        <field name="model">daily.book.dashboard</field>
+        <field name="arch" type="xml">
+            <form string="Books Dashboard" create="0" edit="0" delete="0">
+                <header>
+                    <button name="action_new_expense" type="object" string="New Expense"
+                            class="btn-primary" icon="fa-plus"
+                            groups="odx_books.group_expense_book_user,odx_books.group_book_manager"/>
+                    <button name="action_cash_in_out" type="object" string="Cash In/Out"
+                            class="btn-primary" icon="fa-money"
+                            groups="odx_books.group_cash_book_user,odx_books.group_book_manager"/>
+                    <button name="action_bank_in_out" type="object" string="Bank In/Out"
+                            class="btn-primary" icon="fa-bank"
+                            groups="odx_books.group_bank_book_user,odx_books.group_book_manager"/>
+                    <button name="action_refresh" type="object" string="Refresh" icon="fa-refresh"/>
+                </header>
+                <sheet>
+                    <field name="company_id" invisible="1"/>
+                    <field name="currency_id" invisible="1"/>
+                    <div class="oe_title">
+                        <h1>Books Dashboard</h1>
+                        <h3><field name="company_id" readonly="1"/></h3>
+                    </div>
+                    <group col="2">
+                        <group string="Current Cash Balance">
+                            <field name="cash_balance" class="oe_inline"/>
+                        </group>
+                        <group string="Current Bank Balances">
+                            <field name="bank_balance_line_ids" nolabel="1">
+                                <list create="0" edit="0" delete="0">
+                                    <field name="name" string="Bank Book"/>
+                                    <field name="balance" sum="Total"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                </list>
+                            </field>
+                        </group>
+                    </group>
+                    <separator string="Monthly Expenses by Head"/>
+                    <div class="text-muted mb-2">
+                        Month: <field name="month_label" class="oe_inline"/>
+                    </div>
+                    <field name="expense_summary_line_ids" nolabel="1">
+                        <list create="0" edit="0" delete="0" default_order="amount desc">
+                            <field name="head_id" string="Expense Head"/>
+                            <field name="amount" sum="Monthly Total"/>
+                            <field name="currency_id" column_invisible="True"/>
+                        </list>
+                    </field>
+                    <separator string="Outstanding Receivables — Largest Negative First"/>
+                    <field name="receivable_summary_line_ids" nolabel="1">
+                        <list create="0" edit="0" delete="0" default_order="amount asc">
+                            <field name="partner_id"/>
+                            <field name="amount" sum="Outstanding Total"/>
+                            <field name="currency_id" column_invisible="True"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_open_daily_book_dashboard" model="ir.actions.server">
+        <field name="name">Books Dashboard</field>
+        <field name="model_id" ref="model_daily_book_dashboard"/>
+        <field name="state">code</field>
+        <field name="code">action = model.action_open_dashboard()</field>
+    </record>
+
+    <menuitem id="menu_daily_book_dashboard"
+              name="Dashboard"
+              parent="odx_books.menu_books_root"
+              action="action_open_daily_book_dashboard"
+              sequence="1"
+              groups="odx_books.group_cash_book_user,odx_books.group_bank_book_user,odx_books.group_expense_book_user,odx_books.group_receivable_book_user,odx_books.group_book_manager"/>
+</odoo>
