@@ -275,48 +275,58 @@ class DashboardAPIService:
 
     @classmethod
     def _stock_product_snapshot(cls, env, companies):
-        quant_domain = [("company_id", "in", companies.ids), ("location_id.usage", "=", "internal")]
-        quants = env["stock.quant"].search(quant_domain)
         today = fields.Date.context_today(env.user)
         products = {}
         quant_in_dates = {}
+        env.cr.execute(
+            """
+            SELECT
+                q.product_id,
+                SUM(q.quantity) AS on_hand_qty,
+                SUM(q.quantity - q.reserved_quantity) AS available_qty,
+                MIN(q.in_date)::date AS first_in_date
+            FROM stock_quant q
+            JOIN stock_location l ON l.id = q.location_id
+            WHERE q.company_id = ANY(%s)
+              AND l.usage = 'internal'
+              AND q.product_id IS NOT NULL
+            GROUP BY q.product_id
+            """,
+            [companies.ids],
+        )
+        quant_rows = env.cr.dictfetchall()
+        product_ids = [row["product_id"] for row in quant_rows if row.get("product_id")]
+        product_map = {product.id: product for product in env["product.product"].browse(product_ids)}
 
-        for quant in quants:
-            product = quant.product_id
-            if not product or product.id not in products:
-                products[product.id] = {
-                    "product": product,
-                    "name": product.display_name or "Unknown",
-                    "category": product.categ_id.display_name or "Uncategorized",
-                    "on_hand_qty": 0.0,
-                    "available_qty": 0.0,
-                    "stock_value": 0.0,
-                    "valuation_qty": 0.0,
-                    "valuation_value": 0.0,
-                    "layers_count": 0,
-                    "bucket_qty": defaultdict(float),
-                    "bucket_value": defaultdict(float),
-                    "old_value_61_plus": 0.0,
-                    "old_value_90_plus": 0.0,
-                    "old_qty_61_plus": 0.0,
-                    "old_qty_90_plus": 0.0,
-                    "latest_receipt_date": None,
-                    "dominant_bucket": "0-30",
-                    "movement_in_qty": 0.0,
-                    "movement_out_qty": 0.0,
-                    "movement_total_qty": 0.0,
-                    "movement_days": 0,
-                    "last_movement_date": None,
-                }
-            item = products[product.id]
-            quantity = float(quant.quantity or 0.0)
-            item["on_hand_qty"] += quantity
-            item["available_qty"] += quantity - float(quant.reserved_quantity or 0.0)
-            raw_in_date = getattr(quant, "in_date", None)
-            if raw_in_date:
-                quant_date = fields.Date.to_date(raw_in_date)
-                previous_date = quant_in_dates.get(product.id)
-                quant_in_dates[product.id] = min(previous_date, quant_date) if previous_date else quant_date
+        for row in quant_rows:
+            product = product_map.get(row["product_id"])
+            if not product:
+                continue
+            quant_in_dates[product.id] = fields.Date.to_date(row["first_in_date"]) if row.get("first_in_date") else None
+            products[product.id] = {
+                "product": product,
+                "name": product.display_name or "Unknown",
+                "category": product.categ_id.display_name or "Uncategorized",
+                "on_hand_qty": float(row.get("on_hand_qty") or 0.0),
+                "available_qty": float(row.get("available_qty") or 0.0),
+                "stock_value": 0.0,
+                "valuation_qty": 0.0,
+                "valuation_value": 0.0,
+                "layers_count": 0,
+                "bucket_qty": defaultdict(float),
+                "bucket_value": defaultdict(float),
+                "old_value_61_plus": 0.0,
+                "old_value_90_plus": 0.0,
+                "old_qty_61_plus": 0.0,
+                "old_qty_90_plus": 0.0,
+                "latest_receipt_date": None,
+                "dominant_bucket": "0-30",
+                "movement_in_qty": 0.0,
+                "movement_out_qty": 0.0,
+                "movement_total_qty": 0.0,
+                "movement_days": 0,
+                "last_movement_date": None,
+            }
 
         valuation_model = env.registry.get("stock.valuation.layer") and env["stock.valuation.layer"]
         used_valuation_layers = False
@@ -417,8 +427,6 @@ class DashboardAPIService:
 
     @classmethod
     def _stock_movement_snapshot(cls, env, companies, date_from, date_to):
-        moves_domain = cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids), ("state", "=", "done")]
-        moves = env["stock.move"].search(moves_domain)
         movement_by_product = defaultdict(
             lambda: {
                 "in_qty": 0.0,
@@ -430,30 +438,47 @@ class DashboardAPIService:
         )
         movement_trend = defaultdict(lambda: {"in": 0.0, "out": 0.0})
 
-        for move in moves:
-            product = move.product_id
-            if not product:
+        base_domain = cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids), ("state", "=", "done")]
+        incoming_groups = env["stock.move"].read_group(
+            base_domain + [("location_id.usage", "!=", "internal"), ("location_dest_id.usage", "=", "internal")],
+            ["product_id", "product_uom_qty:sum", "date:day"],
+            ["product_id", "date:day"],
+            lazy=False,
+        )
+        outgoing_groups = env["stock.move"].read_group(
+            base_domain + [("location_id.usage", "=", "internal"), ("location_dest_id.usage", "!=", "internal")],
+            ["product_id", "product_uom_qty:sum", "date:day"],
+            ["product_id", "date:day"],
+            lazy=False,
+        )
+
+        for group in incoming_groups:
+            if not group.get("product_id"):
                 continue
-            source_usage = getattr(move.location_id, "usage", "")
-            dest_usage = getattr(move.location_dest_id, "usage", "")
-            moved_qty = float(getattr(move, "quantity", 0.0) or move.product_uom_qty or 0.0)
-            if moved_qty <= 0:
-                continue
-            movement_date = fields.Datetime.to_datetime(move.date).date() if move.date else None
-            item = movement_by_product[product.id]
+            product_id = group["product_id"][0]
+            moved_qty = float(group.get("product_uom_qty", 0.0) or 0.0)
+            movement_date = fields.Date.to_date(group.get("date:day")) if group.get("date:day") else None
+            item = movement_by_product[product_id]
+            item["in_qty"] += moved_qty
             if movement_date:
                 item["movement_days"].add(movement_date)
                 item["last_movement_date"] = max(filter(None, [item["last_movement_date"], movement_date]))
-            if source_usage == "internal" and dest_usage != "internal":
-                item["out_qty"] += moved_qty
-                if movement_date:
-                    movement_trend[movement_date.isoformat()]["out"] += moved_qty
-            elif source_usage != "internal" and dest_usage == "internal":
-                item["in_qty"] += moved_qty
-                if movement_date:
-                    movement_trend[movement_date.isoformat()]["in"] += moved_qty
-            else:
+                movement_trend[movement_date.isoformat()]["in"] += moved_qty
+
+        for group in outgoing_groups:
+            if not group.get("product_id"):
                 continue
+            product_id = group["product_id"][0]
+            moved_qty = float(group.get("product_uom_qty", 0.0) or 0.0)
+            movement_date = fields.Date.to_date(group.get("date:day")) if group.get("date:day") else None
+            item = movement_by_product[product_id]
+            item["out_qty"] += moved_qty
+            if movement_date:
+                item["movement_days"].add(movement_date)
+                item["last_movement_date"] = max(filter(None, [item["last_movement_date"], movement_date]))
+                movement_trend[movement_date.isoformat()]["out"] += moved_qty
+
+        for item in movement_by_product.values():
             item["total_qty"] = item["in_qty"] + item["out_qty"]
 
         return movement_by_product, movement_trend
