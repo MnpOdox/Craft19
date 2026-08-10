@@ -441,13 +441,13 @@ class DashboardAPIService:
         base_domain = cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids), ("state", "=", "done")]
         incoming_groups = env["stock.move"].read_group(
             base_domain + [("location_id.usage", "!=", "internal"), ("location_dest_id.usage", "=", "internal")],
-            ["product_id", "product_uom_qty:sum", "date:day"],
+            ["product_id", "product_uom_qty:sum"],
             ["product_id", "date:day"],
             lazy=False,
         )
         outgoing_groups = env["stock.move"].read_group(
             base_domain + [("location_id.usage", "=", "internal"), ("location_dest_id.usage", "!=", "internal")],
-            ["product_id", "product_uom_qty:sum", "date:day"],
+            ["product_id", "product_uom_qty:sum"],
             ["product_id", "date:day"],
             lazy=False,
         )
