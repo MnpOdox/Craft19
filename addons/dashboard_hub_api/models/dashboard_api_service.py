@@ -438,26 +438,59 @@ class DashboardAPIService:
         )
         movement_trend = defaultdict(lambda: {"in": 0.0, "out": 0.0})
 
-        base_domain = cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids), ("state", "=", "done")]
-        incoming_groups = env["stock.move"].read_group(
-            base_domain + [("location_id.usage", "!=", "internal"), ("location_dest_id.usage", "=", "internal")],
-            ["product_id", "product_uom_qty:sum"],
-            ["product_id", "date:day"],
-            lazy=False,
-        )
-        outgoing_groups = env["stock.move"].read_group(
-            base_domain + [("location_id.usage", "=", "internal"), ("location_dest_id.usage", "!=", "internal")],
-            ["product_id", "product_uom_qty:sum"],
-            ["product_id", "date:day"],
-            lazy=False,
-        )
+        date_from_dt = datetime.combine(date_from, time.min) if date_from else None
+        date_to_dt = datetime.combine(date_to + timedelta(days=1), time.min) if date_to else None
 
-        for group in incoming_groups:
-            if not group.get("product_id"):
+        env.cr.execute(
+            """
+            SELECT
+                m.product_id,
+                DATE(m.date) AS move_day,
+                SUM(m.product_uom_qty) AS qty_in
+            FROM stock_move m
+            JOIN stock_location src ON src.id = m.location_id
+            JOIN stock_location dest ON dest.id = m.location_dest_id
+            WHERE m.company_id = ANY(%s)
+              AND m.state = 'done'
+              AND m.product_id IS NOT NULL
+              AND (%s IS NULL OR m.date >= %s)
+              AND (%s IS NULL OR m.date < %s)
+              AND src.usage != 'internal'
+              AND dest.usage = 'internal'
+            GROUP BY m.product_id, DATE(m.date)
+            """,
+            [companies.ids, date_from_dt, date_from_dt, date_to_dt, date_to_dt],
+        )
+        incoming_rows = env.cr.dictfetchall()
+
+        env.cr.execute(
+            """
+            SELECT
+                m.product_id,
+                DATE(m.date) AS move_day,
+                SUM(m.product_uom_qty) AS qty_out
+            FROM stock_move m
+            JOIN stock_location src ON src.id = m.location_id
+            JOIN stock_location dest ON dest.id = m.location_dest_id
+            WHERE m.company_id = ANY(%s)
+              AND m.state = 'done'
+              AND m.product_id IS NOT NULL
+              AND (%s IS NULL OR m.date >= %s)
+              AND (%s IS NULL OR m.date < %s)
+              AND src.usage = 'internal'
+              AND dest.usage != 'internal'
+            GROUP BY m.product_id, DATE(m.date)
+            """,
+            [companies.ids, date_from_dt, date_from_dt, date_to_dt, date_to_dt],
+        )
+        outgoing_rows = env.cr.dictfetchall()
+
+        for row in incoming_rows:
+            product_id = row.get("product_id")
+            if not product_id:
                 continue
-            product_id = group["product_id"][0]
-            moved_qty = float(group.get("product_uom_qty", 0.0) or 0.0)
-            movement_date = fields.Date.to_date(group.get("date:day")) if group.get("date:day") else None
+            moved_qty = float(row.get("qty_in") or 0.0)
+            movement_date = fields.Date.to_date(row.get("move_day")) if row.get("move_day") else None
             item = movement_by_product[product_id]
             item["in_qty"] += moved_qty
             if movement_date:
@@ -465,12 +498,12 @@ class DashboardAPIService:
                 item["last_movement_date"] = max(filter(None, [item["last_movement_date"], movement_date]))
                 movement_trend[movement_date.isoformat()]["in"] += moved_qty
 
-        for group in outgoing_groups:
-            if not group.get("product_id"):
+        for row in outgoing_rows:
+            product_id = row.get("product_id")
+            if not product_id:
                 continue
-            product_id = group["product_id"][0]
-            moved_qty = float(group.get("product_uom_qty", 0.0) or 0.0)
-            movement_date = fields.Date.to_date(group.get("date:day")) if group.get("date:day") else None
+            moved_qty = float(row.get("qty_out") or 0.0)
+            movement_date = fields.Date.to_date(row.get("move_day")) if row.get("move_day") else None
             item = movement_by_product[product_id]
             item["out_qty"] += moved_qty
             if movement_date:
