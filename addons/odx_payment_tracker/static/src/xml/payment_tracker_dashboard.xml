@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="odx_payment_tracker.Dashboard">
+        <div class="o_payment_tracker_dashboard">
+            <t t-if="state.loading">
+                <div class="o_pt_loading"><i class="fa fa-circle-o-notch fa-spin"/> Loading payment forecast…</div>
+            </t>
+            <t t-else="">
+                <section class="o_pt_hero">
+                    <div><span>PAYMENT PLANNING</span><h1>Payment Tracker</h1><p><i class="fa fa-building-o"/> <t t-esc="state.data.company"/></p></div>
+                    <div class="o_pt_hero_actions">
+                        <button t-on-click="load"><i class="fa fa-refresh"/> Refresh</button>
+                        <button class="o_pt_primary" t-on-click="newPayment"><i class="fa fa-plus"/> New Payment</button>
+                    </div>
+                </section>
+
+                <section class="o_pt_kpis">
+                    <article class="o_available"><i class="fa fa-wallet"/><span>Available Funds<strong t-esc="formatAmount(state.data.available)"/><small>Cash + active banks</small></span></article>
+                    <article><i class="fa fa-list-alt"/><span>Total Unpaid<strong t-esc="formatAmount(state.data.total_unpaid)"/><small>Confirmed commitments</small></span></article>
+                    <article class="o_due"><i class="fa fa-calendar"/><span>Due in 7 Days<strong t-esc="formatAmount(state.data.due_7)"/><small>Including overdue</small></span></article>
+                    <article class="o_short"><i class="fa fa-line-chart"/><span>Funding Shortage<strong t-esc="formatAmount(state.data.shortage)"/><small>Across all schedules</small></span></article>
+                </section>
+
+                <section class="o_pt_balance_strip">
+                    <div><span>Cash Balance</span><strong t-esc="formatAmount(state.data.cash_balance)"/></div>
+                    <div><span>Bank Balance</span><strong t-esc="formatAmount(state.data.bank_balance)"/></div>
+                    <div><span>Due in 30 Days</span><strong t-esc="formatAmount(state.data.due_30)"/></div>
+                    <button t-on-click="openPayments">View all payments <i class="fa fa-arrow-right"/></button>
+                </section>
+
+                <section class="o_pt_forecast">
+                    <header><div><h2>Funding Timeline</h2><p>Available money is reserved against the earliest due dates first.</p></div></header>
+                    <div class="o_pt_empty" t-if="!state.data.groups.length"><i class="fa fa-check-circle"/><h3>No outstanding scheduled payments</h3><p>Create a payment schedule to start forecasting.</p></div>
+                    <div class="o_pt_group" t-foreach="state.data.groups" t-as="group" t-key="group.date" t-att-class="'o_' + group.status">
+                        <div class="o_pt_date">
+                            <span t-esc="group.date_label"/>
+                            <strong t-if="group.days &lt; 0">Required Now</strong>
+                            <strong t-elif="group.days == 0">Due Today</strong>
+                            <strong t-else=""><t t-esc="group.days"/> days remaining</strong>
+                        </div>
+                        <div class="o_pt_group_summary">
+                            <div><span>Due this date</span><strong t-esc="formatAmount(group.amount)"/></div>
+                            <div><span>Cumulative due</span><strong t-esc="formatAmount(group.cumulative)"/></div>
+                            <div><span>Additional required</span><strong t-esc="formatAmount(group.shortage)"/></div>
+                            <div class="o_pt_target"><span>Daily achievement</span><strong t-esc="formatAmount(group.daily_target)"/></div>
+                        </div>
+                        <div class="o_pt_items">
+                            <button t-foreach="group.items" t-as="item" t-key="item.id" t-on-click="() => this.openSchedule(item.id)">
+                                <span><b t-esc="item.title"/><small><t t-esc="item.reference"/> · <t t-esc="item.responsible"/></small></span>
+                                <strong t-esc="formatAmount(item.remaining)"/><i class="fa fa-chevron-right"/>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </t>
+        </div>
+    </t>
+</templates>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_payment_tracker_payment_wizard_form" model="ir.ui.view">
+        <field name="name">payment.tracker.payment.wizard.form</field>
+        <field name="model">payment.tracker.payment.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Record Payment">
+                <sheet>
+                    <div class="oe_title"><h2>Record Payment in Books</h2></div>
+                    <field name="company_id" invisible="1"/><field name="currency_id" invisible="1"/>
+                    <group>
+                        <group>
+                            <field name="schedule_id"/>
+                            <field name="payment_date"/>
+                            <field name="amount"/>
+                            <field name="source_type" widget="radio" options="{'horizontal': true}"/>
+                        </group>
+                        <group>
+                            <field name="cash_book_id" invisible="source_type != 'cash'" required="source_type == 'cash'"/>
+                            <field name="bank_book_id" invisible="source_type != 'bank'" required="source_type == 'bank'"/>
+                            <field name="allowed_head_ids" invisible="1"/>
+                            <field name="head_id"/>
+                            <field name="partner_id"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="description"/>
+                        <field name="reference"/>
+                        <field name="note"/>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        This creates an outgoing Book line. The description defaults to the schedule title and remains editable.
+                    </div>
+                </sheet>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirm Payment" class="btn-primary"/>
+                    <button string="Discard" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

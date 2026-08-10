@@ -1,0 +1,6 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_payment_tracker_schedule_user,Payment schedule user,model_payment_tracker_schedule,group_payment_tracker_user,1,0,0,0
+access_payment_tracker_schedule_manager,Payment schedule manager,model_payment_tracker_schedule,group_payment_tracker_manager,1,1,1,1
+access_payment_tracker_payment_user,Tracker payment user,model_payment_tracker_payment,group_payment_tracker_user,1,0,0,0
+access_payment_tracker_payment_manager,Tracker payment manager,model_payment_tracker_payment,group_payment_tracker_manager,1,1,1,0
+access_payment_tracker_wizard_manager,Tracker payment wizard manager,model_payment_tracker_payment_wizard,group_payment_tracker_manager,1,1,1,1

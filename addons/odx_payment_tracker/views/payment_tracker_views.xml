@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_payment_tracker_schedule_list" model="ir.ui.view">
+        <field name="name">payment.tracker.schedule.list</field>
+        <field name="model">payment.tracker.schedule</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="state in ('confirmed','partial') and due_date &lt; context_today()"
+                  decoration-warning="state in ('confirmed','partial') and due_date == context_today()"
+                  decoration-success="state == 'paid'" default_order="due_date, priority desc">
+                <field name="name"/>
+                <field name="title"/>
+                <field name="partner_id" optional="show"/>
+                <field name="due_date"/>
+                <field name="planned_amount" sum="Planned"/>
+                <field name="paid_amount" sum="Paid"/>
+                <field name="remaining_amount" sum="Remaining"/>
+                <field name="responsible_id"/>
+                <field name="priority" widget="priority"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'paid'" decoration-info="state == 'confirmed'"
+                       decoration-warning="state == 'partial'" decoration-muted="state in ('draft','cancelled')"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="currency_id" column_invisible="True"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_payment_tracker_schedule_form" model="ir.ui.view">
+        <field name="name">payment.tracker.schedule.form</field>
+        <field name="model">payment.tracker.schedule</field>
+        <field name="arch" type="xml">
+            <form string="Payment Schedule">
+                <header>
+                    <button name="action_confirm" type="object" string="Confirm" class="btn-primary"
+                            invisible="not id or state != 'draft'" groups="odx_payment_tracker.group_payment_tracker_manager"/>
+                    <button name="action_record_payment" type="object" string="Make Payment" class="btn-primary"
+                            invisible="state not in ('confirmed','partial')" groups="odx_payment_tracker.group_payment_tracker_manager"/>
+                    <button name="action_reset_draft" type="object" string="Reset to Draft"
+                            invisible="state not in ('confirmed','cancelled')" groups="odx_payment_tracker.group_payment_tracker_manager"/>
+                    <button name="action_cancel" type="object" string="Cancel"
+                            invisible="state in ('draft','cancelled','paid')" groups="odx_payment_tracker.group_payment_tracker_manager"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,confirmed,partial,paid" invisible="not id"/>
+                </header>
+                <sheet>
+                    <field name="id" invisible="1"/>
+                    <field name="currency_id" invisible="1"/>
+                    <div class="oe_button_box" name="button_box" invisible="not id">
+                        <button class="oe_stat_button" icon="fa-money" type="object" name="action_record_payment"
+                                invisible="state not in ('confirmed','partial')" groups="odx_payment_tracker.group_payment_tracker_manager">
+                            <field name="remaining_amount" widget="statinfo" string="Remaining"/>
+                        </button>
+                    </div>
+                    <div class="oe_title" invisible="not id">
+                        <label for="title"/>
+                        <h1><field name="title" placeholder="e.g. August supplier payment"/></h1>
+                        <field name="name" readonly="1"/>
+                    </div>
+                    <group>
+                        <group>
+                            <div class="alert alert-info" role="alert">
+                                The reference, title, responsible manager, company and remaining amount will be filled automatically.
+                            </div>
+                        </group>
+                    </group>
+                    <group>
+                        <group>
+                            <field name="receivable_book_id" options="{'no_create': True, 'no_create_edit': True}"/>
+                        </group>
+                        <group>
+                            <field name="planned_amount" string="Amount"/>
+                            <field name="due_date"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Description"><field name="description" placeholder="Payment details and instructions..."/></page>
+                        <page string="Receivable" invisible="not id">
+                            <group>
+                                <field name="current_receivable_amount" readonly="1" invisible="not receivable_book_id"/>
+                                <field name="partner_id"/>
+                                <field name="responsible_id"/>
+                                <field name="priority" widget="priority"/>
+                                <field name="paid_amount" readonly="1"/>
+                                <field name="remaining_amount" readonly="1"/>
+                                <field name="company_id" groups="base.group_multi_company"/>
+                            </group>
+                        </page>
+                        <page string="Payment History">
+                            <field name="payment_ids" readonly="1">
+                                <list create="0" edit="0" delete="0">
+                                    <field name="payment_date"/>
+                                    <field name="source_type"/>
+                                    <field name="cash_book_id" optional="show"/>
+                                    <field name="bank_book_id" optional="show"/>
+                                    <field name="head_id"/>
+                                    <field name="amount"/>
+                                    <field name="reference" optional="show"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="user_id"/>
+                                    <button name="action_reverse" type="object" string="Reverse" icon="fa-undo"
+                                            invisible="state != 'posted'" groups="odx_payment_tracker.group_payment_tracker_manager"/>
+                                    <field name="currency_id" column_invisible="True"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter invisible="not id"/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_payment_tracker_schedule_search" model="ir.ui.view">
+        <field name="name">payment.tracker.schedule.search</field>
+        <field name="model">payment.tracker.schedule</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="title"/>
+                <field name="partner_id"/>
+                <field name="responsible_id"/>
+                <filter name="open" string="Open" domain="[('state', 'in', ('confirmed','partial'))]"/>
+                <filter name="overdue" string="Overdue" domain="[('state', 'in', ('confirmed','partial')), ('due_date', '&lt;', context_today())]"/>
+                <separator/>
+                <filter name="group_due" string="Due Date" context="{'group_by': 'due_date'}"/>
+                <filter name="group_responsible" string="Responsible" context="{'group_by': 'responsible_id'}"/>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_payment_tracker_schedule" model="ir.actions.act_window">
+        <field name="name">Payments</field>
+        <field name="res_model">payment.tracker.schedule</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_payment_tracker_schedule_search"/>
+        <field name="context">{'search_default_open': 1}</field>
+    </record>
+
+    <record id="view_payment_tracker_company_form" model="ir.ui.view">
+        <field name="name">res.company.form.payment.tracker</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Payment Tracker" groups="odx_payment_tracker.group_payment_tracker_manager">
+                    <group><field name="payment_tracker_reminder_days" placeholder="7,3,1"/></group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_payment_tracker_company" model="ir.actions.act_window">
+        <field name="name">Reminder Settings</field>
+        <field name="res_model">res.company</field>
+        <field name="view_mode">list,form</field>
+        <field name="domain">[('id', 'in', allowed_company_ids)]</field>
+    </record>
+</odoo>
