@@ -490,7 +490,7 @@ class DashboardAPIService:
             if not product_id:
                 continue
             moved_qty = float(row.get("qty_in") or 0.0)
-            movement_date = fields.Date.to_date(row.get("move_day")) if row.get("move_day") else None
+            movement_date = cls._parse_date(row.get("move_day")) if row.get("move_day") else None
             item = movement_by_product[product_id]
             item["in_qty"] += moved_qty
             if movement_date:
@@ -503,7 +503,7 @@ class DashboardAPIService:
             if not product_id:
                 continue
             moved_qty = float(row.get("qty_out") or 0.0)
-            movement_date = fields.Date.to_date(row.get("move_day")) if row.get("move_day") else None
+            movement_date = cls._parse_date(row.get("move_day")) if row.get("move_day") else None
             item = movement_by_product[product_id]
             item["out_qty"] += moved_qty
             if movement_date:
