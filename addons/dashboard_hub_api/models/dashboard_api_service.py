@@ -246,6 +246,219 @@ class DashboardAPIService:
         return [{"label": label, "value": value} for label, value in ordered]
 
     @classmethod
+    def _format_decimal(cls, value):
+        number = round(float(value or 0.0), 2)
+        if number.is_integer():
+            return f"{int(number):,}"
+        return f"{number:,.2f}"
+
+    @classmethod
+    def _format_currency_value(cls, value, currency_symbol=""):
+        amount = cls._format_decimal(value)
+        return f"{currency_symbol}{amount}" if currency_symbol else amount
+
+    @classmethod
+    def _stock_age_buckets(cls):
+        return [
+            ("0_30", "0-30", 0, 30),
+            ("31_60", "31-60", 31, 60),
+            ("61_90", "61-90", 61, 90),
+            ("90_plus", "90+", 91, None),
+        ]
+
+    @classmethod
+    def _age_bucket_key(cls, age_days):
+        for key, _label, start, end in cls._stock_age_buckets():
+            if age_days >= start and (end is None or age_days <= end):
+                return key
+        return "0_30"
+
+    @classmethod
+    def _stock_product_snapshot(cls, env, companies):
+        quant_domain = [("company_id", "in", companies.ids), ("location_id.usage", "=", "internal")]
+        quants = env["stock.quant"].search(quant_domain)
+        today = fields.Date.context_today(env.user)
+        products = {}
+
+        for quant in quants:
+            product = quant.product_id
+            if not product or product.id not in products:
+                products[product.id] = {
+                    "product": product,
+                    "name": product.display_name or "Unknown",
+                    "category": product.categ_id.display_name or "Uncategorized",
+                    "on_hand_qty": 0.0,
+                    "available_qty": 0.0,
+                    "stock_value": 0.0,
+                    "valuation_qty": 0.0,
+                    "valuation_value": 0.0,
+                    "layers_count": 0,
+                    "bucket_qty": defaultdict(float),
+                    "bucket_value": defaultdict(float),
+                    "old_value_61_plus": 0.0,
+                    "old_value_90_plus": 0.0,
+                    "old_qty_61_plus": 0.0,
+                    "old_qty_90_plus": 0.0,
+                    "latest_receipt_date": None,
+                    "dominant_bucket": "0-30",
+                    "movement_in_qty": 0.0,
+                    "movement_out_qty": 0.0,
+                    "movement_total_qty": 0.0,
+                    "movement_days": 0,
+                    "last_movement_date": None,
+                }
+            item = products[product.id]
+            quantity = float(quant.quantity or 0.0)
+            item["on_hand_qty"] += quantity
+            item["available_qty"] += quantity - float(quant.reserved_quantity or 0.0)
+
+        valuation_model = env.registry.get("stock.valuation.layer") and env["stock.valuation.layer"]
+        used_valuation_layers = False
+        if valuation_model and {"remaining_qty", "remaining_value", "product_id", "company_id"} <= set(valuation_model._fields):
+            valuation_domain = [("company_id", "in", companies.ids), ("remaining_qty", ">", 0)]
+            valuation_layers = valuation_model.search(valuation_domain)
+            for layer in valuation_layers:
+                product = layer.product_id
+                if not product:
+                    continue
+                item = products.setdefault(
+                    product.id,
+                    {
+                        "product": product,
+                        "name": product.display_name or "Unknown",
+                        "category": product.categ_id.display_name or "Uncategorized",
+                        "on_hand_qty": 0.0,
+                        "available_qty": 0.0,
+                        "stock_value": 0.0,
+                        "valuation_qty": 0.0,
+                        "valuation_value": 0.0,
+                        "layers_count": 0,
+                        "bucket_qty": defaultdict(float),
+                        "bucket_value": defaultdict(float),
+                        "old_value_61_plus": 0.0,
+                        "old_value_90_plus": 0.0,
+                        "old_qty_61_plus": 0.0,
+                        "old_qty_90_plus": 0.0,
+                        "latest_receipt_date": None,
+                        "dominant_bucket": "0-30",
+                        "movement_in_qty": 0.0,
+                        "movement_out_qty": 0.0,
+                        "movement_total_qty": 0.0,
+                        "movement_days": 0,
+                        "last_movement_date": None,
+                    },
+                )
+                remaining_qty = float(layer.remaining_qty or 0.0)
+                remaining_value = float(layer.remaining_value or 0.0)
+                if remaining_qty <= 0 and abs(remaining_value) <= 0.00001:
+                    continue
+                layer_date = None
+                for field_name in ("accounting_date", "create_date"):
+                    if field_name not in layer._fields:
+                        continue
+                    raw_value = getattr(layer, field_name)
+                    if raw_value:
+                        layer_date = fields.Date.to_date(raw_value)
+                        break
+                layer_date = layer_date or today
+                age_days = max((today - layer_date).days, 0)
+                bucket_key = cls._age_bucket_key(age_days)
+                item["valuation_qty"] += remaining_qty
+                item["valuation_value"] += remaining_value
+                item["bucket_qty"][bucket_key] += remaining_qty
+                item["bucket_value"][bucket_key] += remaining_value
+                item["layers_count"] += 1
+                if age_days >= 61:
+                    item["old_qty_61_plus"] += remaining_qty
+                    item["old_value_61_plus"] += remaining_value
+                if age_days >= 91:
+                    item["old_qty_90_plus"] += remaining_qty
+                    item["old_value_90_plus"] += remaining_value
+                if not item["latest_receipt_date"] or layer_date > item["latest_receipt_date"]:
+                    item["latest_receipt_date"] = layer_date
+                used_valuation_layers = True
+
+        for item in products.values():
+            if item["valuation_qty"] > 0 or abs(item["valuation_value"]) > 0.00001:
+                item["stock_value"] = item["valuation_value"]
+                if not item["on_hand_qty"]:
+                    item["on_hand_qty"] = item["valuation_qty"]
+                if not item["available_qty"]:
+                    item["available_qty"] = item["valuation_qty"]
+            else:
+                fallback_value = item["on_hand_qty"] * float(item["product"].standard_price or 0.0)
+                item["stock_value"] = fallback_value
+                quant_date = None
+                for quant in quants.filtered(lambda record: record.product_id.id == item["product"].id):
+                    raw_in_date = getattr(quant, "in_date", None)
+                    if raw_in_date:
+                        quant_date = fields.Date.to_date(raw_in_date)
+                        break
+                quant_date = quant_date or today
+                age_days = max((today - quant_date).days, 0)
+                bucket_key = cls._age_bucket_key(age_days)
+                item["bucket_qty"][bucket_key] += item["on_hand_qty"]
+                item["bucket_value"][bucket_key] += item["stock_value"]
+                if age_days >= 61:
+                    item["old_qty_61_plus"] += item["on_hand_qty"]
+                    item["old_value_61_plus"] += item["stock_value"]
+                if age_days >= 91:
+                    item["old_qty_90_plus"] += item["on_hand_qty"]
+                    item["old_value_90_plus"] += item["stock_value"]
+                item["latest_receipt_date"] = quant_date
+
+            dominant_bucket_key = max(
+                cls._stock_age_buckets(),
+                key=lambda bucket: item["bucket_value"].get(bucket[0], 0.0),
+            )[0]
+            bucket_meta = next((bucket for bucket in cls._stock_age_buckets() if bucket[0] == dominant_bucket_key), None)
+            item["dominant_bucket"] = bucket_meta[1] if bucket_meta else "0-30"
+        return products, used_valuation_layers
+
+    @classmethod
+    def _stock_movement_snapshot(cls, env, companies, date_from, date_to):
+        moves_domain = cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids), ("state", "=", "done")]
+        moves = env["stock.move"].search(moves_domain)
+        movement_by_product = defaultdict(
+            lambda: {
+                "in_qty": 0.0,
+                "out_qty": 0.0,
+                "total_qty": 0.0,
+                "movement_days": set(),
+                "last_movement_date": None,
+            }
+        )
+        movement_trend = defaultdict(lambda: {"in": 0.0, "out": 0.0})
+
+        for move in moves:
+            product = move.product_id
+            if not product:
+                continue
+            source_usage = getattr(move.location_id, "usage", "")
+            dest_usage = getattr(move.location_dest_id, "usage", "")
+            moved_qty = float(getattr(move, "quantity", 0.0) or move.product_uom_qty or 0.0)
+            if moved_qty <= 0:
+                continue
+            movement_date = fields.Datetime.to_datetime(move.date).date() if move.date else None
+            item = movement_by_product[product.id]
+            if movement_date:
+                item["movement_days"].add(movement_date)
+                item["last_movement_date"] = max(filter(None, [item["last_movement_date"], movement_date]))
+            if source_usage == "internal" and dest_usage != "internal":
+                item["out_qty"] += moved_qty
+                if movement_date:
+                    movement_trend[movement_date.isoformat()]["out"] += moved_qty
+            elif source_usage != "internal" and dest_usage == "internal":
+                item["in_qty"] += moved_qty
+                if movement_date:
+                    movement_trend[movement_date.isoformat()]["in"] += moved_qty
+            else:
+                continue
+            item["total_qty"] = item["in_qty"] + item["out_qty"]
+
+        return movement_by_product, movement_trend
+
+    @classmethod
     def _is_bank_payment_method(cls, payment_method):
         return getattr(payment_method, "type", "") == "bank"
 
@@ -607,52 +820,181 @@ class DashboardAPIService:
 
     @classmethod
     def _build_stock(cls, env, companies, scope, date_from, date_to):
-        quant_domain = [("company_id", "in", companies.ids), ("location_id.usage", "=", "internal")]
-        quants = env["stock.quant"].search(quant_domain)
-        moves_domain = cls._date_domain("date", date_from, date_to) + [("company_id", "in", companies.ids), ("state", "=", "done")]
-        moves = env["stock.move"].search(moves_domain)
-        on_hand_qty = sum(quants.mapped("quantity"))
-        available_qty = sum((quant.quantity - quant.reserved_quantity) for quant in quants)
-        inventory_value = sum((quant.quantity or 0.0) * (quant.product_id.standard_price or 0.0) for quant in quants)
-        quantity_by_product = defaultdict(float)
-        out_of_stock = 0
+        products, uses_valuation_layers = cls._stock_product_snapshot(env, companies)
+        movement_by_product, movement_trend = cls._stock_movement_snapshot(env, companies, date_from, date_to)
+        currency_symbol = cls._currency_symbol(companies)
+
+        on_hand_qty = sum(item["on_hand_qty"] for item in products.values())
+        available_qty = sum(item["available_qty"] for item in products.values())
+        inventory_value = sum(item["stock_value"] for item in products.values())
         low_stock = 0
-        for quant in quants:
-            quantity_by_product[quant.product_id.display_name] += quant.quantity or 0.0
-        for qty in quantity_by_product.values():
+        out_of_stock = 0
+        aged_value_61_plus = 0.0
+        aged_value_90_plus = 0.0
+        aged_qty_61_plus = 0.0
+        aged_qty_90_plus = 0.0
+        age_value_totals = defaultdict(float)
+        age_qty_totals = defaultdict(float)
+
+        for product_id, item in products.items():
+            movement = movement_by_product.get(product_id, {})
+            item["movement_in_qty"] = movement.get("in_qty", 0.0)
+            item["movement_out_qty"] = movement.get("out_qty", 0.0)
+            item["movement_total_qty"] = movement.get("total_qty", 0.0)
+            item["movement_days"] = len(movement.get("movement_days", set()))
+            item["last_movement_date"] = movement.get("last_movement_date")
+
+            qty = item["on_hand_qty"]
             if qty <= 0:
                 out_of_stock += 1
             elif qty <= 5:
                 low_stock += 1
-        movement_by_product = defaultdict(float)
-        trend = defaultdict(float)
-        for move in moves:
-            label = move.product_id.display_name or move.reference or "Unknown"
-            moved_qty = move.product_uom_qty or 0.0
-            if "quantity" in move._fields:
-                moved_qty = move.quantity or moved_qty
-            movement_by_product[label] += moved_qty
-            trend[(move.date or fields.Datetime.now()).strftime("%Y-%m-%d")] += moved_qty
-        currency_symbol = cls._currency_symbol(companies)
+
+            aged_value_61_plus += item["old_value_61_plus"]
+            aged_value_90_plus += item["old_value_90_plus"]
+            aged_qty_61_plus += item["old_qty_61_plus"]
+            aged_qty_90_plus += item["old_qty_90_plus"]
+            for bucket_key, label, _start, _end in cls._stock_age_buckets():
+                age_value_totals[label] += item["bucket_value"].get(bucket_key, 0.0)
+                age_qty_totals[label] += item["bucket_qty"].get(bucket_key, 0.0)
+
+        aged_value_pct = (aged_value_61_plus / inventory_value * 100.0) if inventory_value else 0.0
+        sorted_products = sorted(products.values(), key=lambda item: item["stock_value"], reverse=True)
+        fast_movers = sorted(
+            [item for item in sorted_products if item["movement_total_qty"] > 0],
+            key=lambda item: (item["movement_total_qty"], item["stock_value"]),
+            reverse=True,
+        )
+        slow_movers = sorted(
+            [item for item in sorted_products if item["on_hand_qty"] > 0],
+            key=lambda item: (item["movement_total_qty"], -item["stock_value"], item["name"]),
+        )
+
+        age_value_chart = [{"label": label, "value": round(age_value_totals[label], 2)} for _key, label, _start, _end in cls._stock_age_buckets()]
+        age_qty_chart = [{"label": label, "value": round(age_qty_totals[label], 2)} for _key, label, _start, _end in cls._stock_age_buckets()]
+        movement_summary_chart = []
+        for label in sorted(movement_trend):
+            totals = movement_trend[label]
+            movement_summary_chart.append({"label": f"{label} In", "value": round(totals["in"], 2)})
+            movement_summary_chart.append({"label": f"{label} Out", "value": round(totals["out"], 2)})
+
         return {
             "title": "Stock",
             "kpis": [
                 cls._kpi("on_hand_qty", "On Hand Quantity", on_hand_qty, "decimal"),
                 cls._kpi("available_qty", "Available Quantity", available_qty, "decimal"),
-                cls._kpi("inventory_value", "Inventory Value", inventory_value, "currency", currency_symbol=currency_symbol),
+                cls._kpi("inventory_value", "Stock Value", inventory_value, "currency", currency_symbol=currency_symbol),
+                cls._kpi("aged_value_61_plus", "Aged Stock 61+ Days", aged_value_61_plus, "currency", currency_symbol=currency_symbol),
+                cls._kpi("aged_value_90_plus", "Aged Stock 90+ Days", aged_value_90_plus, "currency", currency_symbol=currency_symbol),
+                cls._kpi("aged_value_pct", "Aged Stock %", aged_value_pct, "decimal", suffix="%"),
                 cls._kpi("low_stock_count", "Low Stock Items", low_stock),
                 cls._kpi("out_of_stock_count", "Out of Stock Items", out_of_stock),
             ],
             "charts": [
-                cls._chart("stock_movement_trend", "Stock Movement Trend", [{"label": label, "value": round(value, 2)} for label, value in sorted(trend.items())]),
+                cls._chart("stock_aging_value", "Stock Aging by Value", age_value_chart),
+                cls._chart("stock_aging_qty", "Stock Aging by Quantity", age_qty_chart),
+                cls._chart(
+                    "high_movement_products",
+                    "High Movement Products",
+                    [{"label": item["name"], "value": round(item["movement_total_qty"], 2)} for item in fast_movers[:20]],
+                    preview_limit=8,
+                ),
+                cls._chart(
+                    "slow_moving_stock",
+                    "Slow Moving Stock Value",
+                    [{"label": item["name"], "value": round(item["stock_value"], 2)} for item in slow_movers[:20]],
+                    preview_limit=8,
+                ),
+                cls._chart("stock_flow_trend", "Stock In / Out Trend", movement_summary_chart, preview_limit=10),
             ],
-            "tables": [],
+            "tables": [
+                cls._table(
+                    "stock_aging_detail",
+                    "Top Aged Stock",
+                    [
+                        {"key": "product", "label": "Product"},
+                        {"key": "category", "label": "Category"},
+                        {"key": "on_hand_qty", "label": "On Hand Qty"},
+                        {"key": "stock_value", "label": "Stock Value"},
+                        {"key": "aged_61_plus", "label": "61+ Days Value"},
+                        {"key": "aged_90_plus", "label": "90+ Days Value"},
+                        {"key": "dominant_bucket", "label": "Main Age Bucket"},
+                    ],
+                    [
+                        {
+                            "product": item["name"],
+                            "category": item["category"],
+                            "on_hand_qty": cls._format_decimal(item["on_hand_qty"]),
+                            "stock_value": cls._format_currency_value(item["stock_value"], currency_symbol),
+                            "aged_61_plus": cls._format_currency_value(item["old_value_61_plus"], currency_symbol),
+                            "aged_90_plus": cls._format_currency_value(item["old_value_90_plus"], currency_symbol),
+                            "dominant_bucket": item["dominant_bucket"],
+                        }
+                        for item in sorted(sorted_products, key=lambda row: row["old_value_61_plus"], reverse=True)[:20]
+                    ],
+                ),
+                cls._table(
+                    "fast_moving_products",
+                    "Fast Moving Products",
+                    [
+                        {"key": "product", "label": "Product"},
+                        {"key": "current_qty", "label": "Current Qty"},
+                        {"key": "current_value", "label": "Current Value"},
+                        {"key": "in_qty", "label": "In Qty"},
+                        {"key": "out_qty", "label": "Out Qty"},
+                        {"key": "total_qty", "label": "Total Movement"},
+                    ],
+                    [
+                        {
+                            "product": item["name"],
+                            "current_qty": cls._format_decimal(item["on_hand_qty"]),
+                            "current_value": cls._format_currency_value(item["stock_value"], currency_symbol),
+                            "in_qty": cls._format_decimal(item["movement_in_qty"]),
+                            "out_qty": cls._format_decimal(item["movement_out_qty"]),
+                            "total_qty": cls._format_decimal(item["movement_total_qty"]),
+                        }
+                        for item in fast_movers[:20]
+                    ],
+                ),
+                cls._table(
+                    "slow_moving_products",
+                    "Slow / Low Movement Products",
+                    [
+                        {"key": "product", "label": "Product"},
+                        {"key": "current_qty", "label": "Current Qty"},
+                        {"key": "current_value", "label": "Current Value"},
+                        {"key": "movement_qty", "label": "Movement Qty"},
+                        {"key": "movement_days", "label": "Active Days"},
+                        {"key": "dominant_bucket", "label": "Main Age Bucket"},
+                    ],
+                    [
+                        {
+                            "product": item["name"],
+                            "current_qty": cls._format_decimal(item["on_hand_qty"]),
+                            "current_value": cls._format_currency_value(item["stock_value"], currency_symbol),
+                            "movement_qty": cls._format_decimal(item["movement_total_qty"]),
+                            "movement_days": item["movement_days"],
+                            "dominant_bucket": item["dominant_bucket"],
+                        }
+                        for item in sorted(
+                            slow_movers,
+                            key=lambda row: (row["movement_total_qty"], -row["stock_value"]),
+                        )[:20]
+                    ],
+                ),
+            ],
             "summary": {
                 "inventory_value": inventory_value,
                 "on_hand_qty": on_hand_qty,
                 "available_qty": available_qty,
                 "low_stock": low_stock,
                 "out_of_stock": out_of_stock,
+                "aged_value_61_plus": aged_value_61_plus,
+                "aged_value_90_plus": aged_value_90_plus,
+                "aged_value_pct": aged_value_pct,
+                "aged_qty_61_plus": aged_qty_61_plus,
+                "aged_qty_90_plus": aged_qty_90_plus,
+                "uses_valuation_layers": uses_valuation_layers,
             },
         }
 

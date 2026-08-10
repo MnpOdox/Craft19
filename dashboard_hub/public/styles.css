@@ -330,6 +330,10 @@ button {
   overflow: auto;
 }
 
+.table-panel {
+  grid-column: 1 / -1;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
