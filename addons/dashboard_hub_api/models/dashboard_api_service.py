@@ -279,6 +279,7 @@ class DashboardAPIService:
         quants = env["stock.quant"].search(quant_domain)
         today = fields.Date.context_today(env.user)
         products = {}
+        quant_in_dates = {}
 
         for quant in quants:
             product = quant.product_id
@@ -311,6 +312,11 @@ class DashboardAPIService:
             quantity = float(quant.quantity or 0.0)
             item["on_hand_qty"] += quantity
             item["available_qty"] += quantity - float(quant.reserved_quantity or 0.0)
+            raw_in_date = getattr(quant, "in_date", None)
+            if raw_in_date:
+                quant_date = fields.Date.to_date(raw_in_date)
+                previous_date = quant_in_dates.get(product.id)
+                quant_in_dates[product.id] = min(previous_date, quant_date) if previous_date else quant_date
 
         valuation_model = env.registry.get("stock.valuation.layer") and env["stock.valuation.layer"]
         used_valuation_layers = False
@@ -388,13 +394,7 @@ class DashboardAPIService:
             else:
                 fallback_value = item["on_hand_qty"] * float(item["product"].standard_price or 0.0)
                 item["stock_value"] = fallback_value
-                quant_date = None
-                for quant in quants.filtered(lambda record: record.product_id.id == item["product"].id):
-                    raw_in_date = getattr(quant, "in_date", None)
-                    if raw_in_date:
-                        quant_date = fields.Date.to_date(raw_in_date)
-                        break
-                quant_date = quant_date or today
+                quant_date = quant_in_dates.get(item["product"].id) or today
                 age_days = max((today - quant_date).days, 0)
                 bucket_key = cls._age_bucket_key(age_days)
                 item["bucket_qty"][bucket_key] += item["on_hand_qty"]

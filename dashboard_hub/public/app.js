@@ -9,6 +9,9 @@ const state = {
   dateTo: localStorage.getItem("dashboard.dateTo") || "",
   chartPages: {},
   chartExpanded: {},
+  tablePages: {},
+  tableSearch: {},
+  tableFilters: {},
 };
 
 const loginShell = document.getElementById("login-shell");
@@ -59,6 +62,15 @@ function formatKpiMetaValue(value, format, currencySymbol = "") {
     return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
   return Number(value || 0).toLocaleString();
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function setPeriodVisibility() {
@@ -233,33 +245,112 @@ function renderCharts(charts) {
 function renderTables(tables) {
   tableGrid.innerHTML = "";
   tableGrid.classList.toggle("hidden", !(tables || []).length);
+  const pageSize = 10;
   (tables || []).forEach((table) => {
     const panel = document.createElement("article");
     panel.className = "card panel table-panel";
     const headers = (table.columns || []).map((column) => `<th>${column.label}</th>`).join("");
-    const rows = (table.rows || [])
-      .map((row) => {
-        return `<tr>${(table.columns || [])
-          .map((column) => {
-            if (column.key === "record_url") {
-              return `<td>${row.record_url ? `<a href="${row.record_url}" target="_blank" rel="noreferrer">Open</a>` : ""}</td>`;
+    const allRows = table.rows || [];
+    const filterColumns = (table.columns || []).filter((column) => ["category", "dominant_bucket", "status"].includes(column.key));
+    if (!state.tableSearch[table.key]) {
+      state.tableSearch[table.key] = "";
+    }
+    if (!state.tableFilters[table.key]) {
+      state.tableFilters[table.key] = {};
+    }
+
+    const renderTablePage = () => {
+      const searchTerm = (state.tableSearch[table.key] || "").trim().toLowerCase();
+      const activeFilters = state.tableFilters[table.key] || {};
+      const filteredRows = allRows.filter((row) => {
+        const matchesSearch = !searchTerm || (table.columns || []).some((column) => String(row[column.key] ?? "").toLowerCase().includes(searchTerm));
+        if (!matchesSearch) {
+          return false;
+        }
+        return filterColumns.every((column) => {
+          const selectedValue = activeFilters[column.key] || "";
+          return !selectedValue || String(row[column.key] ?? "") === selectedValue;
+        });
+      });
+
+      const totalPages = Math.max(Math.ceil(filteredRows.length / pageSize), 1);
+      const currentPage = Math.min(state.tablePages[table.key] || 0, totalPages - 1);
+      state.tablePages[table.key] = currentPage;
+      const start = currentPage * pageSize;
+      const visibleRows = filteredRows.slice(start, start + pageSize);
+      const rowsMarkup = visibleRows
+        .map((row) => {
+          return `<tr>${(table.columns || [])
+            .map((column) => {
+              if (column.key === "record_url") {
+                return `<td>${row.record_url ? `<a href="${escapeHtml(row.record_url)}" target="_blank" rel="noreferrer">Open</a>` : ""}</td>`;
+              }
+              return `<td>${escapeHtml(row[column.key] ?? "")}</td>`;
+            })
+            .join("")}</tr>`;
+        })
+        .join("");
+
+      panel.innerHTML = `
+        <div class="panel-head">
+          <h3>${table.title}</h3>
+          <div class="panel-actions table-actions">
+            <input type="search" class="table-search-input" placeholder="Search products, category, status..." value="${escapeHtml(state.tableSearch[table.key] || "")}">
+            ${filterColumns
+              .map((column) => {
+                const options = Array.from(new Set(allRows.map((row) => String(row[column.key] ?? "")).filter(Boolean))).sort();
+                return `
+                  <select class="table-filter-select" data-key="${column.key}">
+                    <option value="">All ${escapeHtml(column.label)}</option>
+                    ${options.map((option) => `<option value="${escapeHtml(option)}" ${activeFilters[column.key] === option ? "selected" : ""}>${escapeHtml(option)}</option>`).join("")}
+                  </select>
+                `;
+              })
+              .join("")}
+            ${
+              filteredRows.length > pageSize
+                ? `<div class="panel-pagination">
+                    <button type="button" class="chart-page-btn table-page-btn" data-direction="-1" ${currentPage === 0 ? "disabled" : ""}>Prev</button>
+                    <span class="chart-page-status">${start + 1}-${Math.min(start + pageSize, filteredRows.length)} of ${filteredRows.length}</span>
+                    <button type="button" class="chart-page-btn table-page-btn" data-direction="1" ${currentPage >= totalPages - 1 ? "disabled" : ""}>Next</button>
+                  </div>`
+                : `<span class="chart-page-status">${filteredRows.length} item${filteredRows.length === 1 ? "" : "s"}</span>`
             }
-            return `<td>${row[column.key] ?? ""}</td>`;
-          })
-          .join("")}</tr>`;
-      })
-      .join("");
-    panel.innerHTML = `
-      <div class="panel-head">
-        <h3>${table.title}</h3>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr>${headers}</tr></thead>
-          <tbody>${rows || `<tr><td colspan="${table.columns.length}">No data</td></tr>`}</tbody>
-        </table>
-      </div>
-    `;
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>${headers}</tr></thead>
+            <tbody>${rowsMarkup || `<tr><td colspan="${table.columns.length}">No matching data</td></tr>`}</tbody>
+          </table>
+        </div>
+      `;
+
+      panel.querySelector(".table-search-input")?.addEventListener("input", (event) => {
+        state.tableSearch[table.key] = event.target.value;
+        state.tablePages[table.key] = 0;
+        renderTablePage();
+      });
+      panel.querySelectorAll(".table-filter-select").forEach((select) => {
+        select.addEventListener("change", (event) => {
+          state.tableFilters[table.key] = {
+            ...(state.tableFilters[table.key] || {}),
+            [event.target.dataset.key]: event.target.value,
+          };
+          state.tablePages[table.key] = 0;
+          renderTablePage();
+        });
+      });
+      panel.querySelectorAll(".table-page-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          const nextPage = currentPage + Number(button.dataset.direction || 0);
+          state.tablePages[table.key] = Math.max(0, Math.min(nextPage, totalPages - 1));
+          renderTablePage();
+        });
+      });
+    };
+
+    renderTablePage();
     tableGrid.appendChild(panel);
   });
 }
@@ -288,6 +379,9 @@ async function loadDashboard(refresh = false) {
     return;
   }
   hideStatus();
+  state.tablePages = {};
+  state.tableSearch = {};
+  state.tableFilters = {};
   renderKpis(data.kpis);
   renderCharts(data.charts);
   renderTables(data.tables);

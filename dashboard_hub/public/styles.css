@@ -272,6 +272,10 @@ button {
   flex-wrap: wrap;
 }
 
+.table-actions {
+  justify-content: flex-end;
+}
+
 .panel-pagination {
   display: flex;
   align-items: center;
@@ -330,6 +334,19 @@ button {
   overflow: auto;
 }
 
+.table-search-input {
+  min-width: min(280px, 100%);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+}
+
+.table-filter-select {
+  min-width: 150px;
+  padding: 10px 12px;
+}
+
 .table-panel {
   grid-column: 1 / -1;
 }
@@ -376,5 +393,16 @@ a {
 
   .kpi-grid {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .table-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .table-search-input,
+  .table-filter-select {
+    width: 100%;
+    min-width: 0;
   }
 }
