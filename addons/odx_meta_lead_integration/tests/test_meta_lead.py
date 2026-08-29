@@ -31,11 +31,24 @@ class TestMetaLead(TransactionCase):
         first = self.form._import_payload({
             "id": "lead-1",
             "created_time": "2026-08-28T03:43:50+0000",
-            "field_data": [{"name": "phone", "values": ["+911111111111"]}],
+            "campaign_name": "Ribbon Campaign",
+            "adset_name": "Ribbon Ad Set",
+            "ad_name": "Ribbon Ad",
+            "field_data": [
+                {"name": "full_name", "values": ["Test Customer"]},
+                {"name": "phone", "values": ["+911111111111"]},
+                {"name": "preferred_colour", "values": ["Blue"]},
+            ],
         })
         second = self.form._import_payload({"id": "lead-2", "field_data": []})
         duplicate = self.form._import_payload({"id": "lead-1", "field_data": []})
         self.assertEqual([first.user_id.id, second.user_id.id], self.users.ids)
         self.assertEqual(duplicate, first)
+        self.assertEqual(first.name, "Lead form - Test Customer")
+        self.assertEqual(first.contact_name, "Test Customer")
         self.assertEqual(first.phone, "+911111111111")
         self.assertEqual(first.meta_created_time, fields.Datetime.to_datetime("2026-08-28 03:43:50"))
+        self.assertIn("2026-08-28 03:43:50", first.description)
+        self.assertIn("Ribbon Campaign", first.description)
+        self.assertIn("Preferred Colour", first.description)
+        self.assertIn("Blue", first.description)

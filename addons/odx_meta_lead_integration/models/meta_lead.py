@@ -177,7 +177,6 @@ class MetaForm(models.Model):
             for item in payload.get("field_data", [])
         }
         values = {}
-        notes = []
         for mapping in self.mapping_ids:
             meta_field = (mapping.meta_field or "").strip().lower()
             value = raw.pop(meta_field, False)
@@ -188,11 +187,61 @@ class MetaForm(models.Model):
                 value = raw.pop(alias, False)
             if value:
                 values[mapping.odoo_field_id.name] = value
-        for key, value in raw.items():
-            notes.append("%s: %s" % (html_escape(key), html_escape(value)))
-        if notes:
-            values["description"] = "<br/>".join(notes)
         return values
+
+    def _payload_answers(self, payload):
+        """Return normalized Meta form answers while preserving their labels."""
+        self.ensure_one()
+        answers = []
+        for item in payload.get("field_data", []):
+            key = str(item.get("name") or "").strip()
+            if not key:
+                continue
+            answers.append((key, "\n".join(str(value) for value in (item.get("values") or []))))
+        return answers
+
+    def _full_name_from_payload(self, payload):
+        self.ensure_one()
+        answers = {key.lower(): value for key, value in self._payload_answers(payload)}
+        full_name = answers.get("full_name") or answers.get("name")
+        if not full_name:
+            full_name = " ".join(filter(None, [answers.get("first_name"), answers.get("last_name")]))
+        return full_name.strip() if full_name else False
+
+    def _lead_description(self, payload, created):
+        """Build a complete, readable Meta summary for the CRM Description."""
+        self.ensure_one()
+        details = [
+            (_("Created Datetime"), fields.Datetime.to_string(created)),
+            (_("Page"), self.page_id.name),
+            (_("Form / Product"), self.name),
+            (_("Campaign"), payload.get("campaign_name")),
+            (_("Ad Set"), payload.get("adset_name")),
+            (_("Ad"), payload.get("ad_name")),
+            (_("Meta Lead ID"), payload.get("id")),
+        ]
+        rows = [
+            "<tr><th>%s</th><td>%s</td></tr>" % (
+                html_escape(label), html_escape(value or "-"),
+            )
+            for label, value in details
+        ]
+        answer_rows = [
+            "<tr><th>%s</th><td>%s</td></tr>" % (
+                html_escape(key.replace("_", " ").title()),
+                html_escape(value or "-"),
+            )
+            for key, value in self._payload_answers(payload)
+        ]
+        return (
+            "<h4>%s</h4><table class=\"table table-sm\"><tbody>%s</tbody></table>"
+            "<h4>%s</h4><table class=\"table table-sm\"><tbody>%s</tbody></table>"
+        ) % (
+            html_escape(_("Meta Lead Details")),
+            "".join(rows),
+            html_escape(_("Submitted Form Answers")),
+            "".join(answer_rows) or "<tr><td>-</td></tr>",
+        )
 
     def _import_payload(self, payload, event=None):
         self.ensure_one()
@@ -213,8 +262,14 @@ class MetaForm(models.Model):
         values = self._mapped_values(payload)
         user = self._next_salesperson()
         created = _parse_meta_datetime(payload.get("created_time"))
+        full_name = self._full_name_from_payload(payload) or values.get("contact_name")
+        title = self.name
+        if full_name:
+            title = "%s - %s" % (self.name, full_name)
         values.update({
-            "name": values.get("name") or payload.get("ad_name") or _("Meta lead from %s", self.name),
+            "name": title,
+            "contact_name": full_name or False,
+            "description": self._lead_description(payload, created),
             "type": "lead", "team_id": self.team_id.id, "user_id": user.id if user else False,
             "company_id": self.company_id.id, "meta_lead_id": lead_ref,
             "meta_page_id": self.page_id.id, "meta_form_id": self.id, "meta_created_time": created,
