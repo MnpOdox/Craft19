@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_meta_account_manager,meta.account.manager,model_odx_meta_account,odx_meta_lead_integration.group_meta_lead_manager,1,1,1,1
+access_meta_page_manager,meta.page.manager,model_odx_meta_page,odx_meta_lead_integration.group_meta_lead_manager,1,1,1,1
+access_meta_form_manager,meta.form.manager,model_odx_meta_form,odx_meta_lead_integration.group_meta_lead_manager,1,1,1,1
+access_meta_mapping_manager,meta.mapping.manager,model_odx_meta_field_mapping,odx_meta_lead_integration.group_meta_lead_manager,1,1,1,1
+access_meta_event_manager,meta.event.manager,model_odx_meta_import_event,odx_meta_lead_integration.group_meta_lead_manager,1,0,0,0
+access_meta_page_sales,meta.page.sales,model_odx_meta_page,sales_team.group_sale_salesman,1,0,0,0
+access_meta_form_sales,meta.form.sales,model_odx_meta_form,sales_team.group_sale_salesman,1,0,0,0
