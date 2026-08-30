@@ -25,7 +25,14 @@ class WhatsAppApiMixin(models.AbstractModel):
 
     def _api(self, account, method, path, **kwargs):
         url = "https://graph.facebook.com/%s/%s" % (account.graph_version, path.lstrip("/"))
-        headers = dict(kwargs.pop("headers", {}), Authorization="Bearer %s" % account.access_token)
+        # Salespeople may send through an account, but credentials must remain
+        # manager-only fields.  Elevate only this server-side credential read;
+        # conversation, lead, company and send permissions remain evaluated in
+        # the caller's environment before this helper is reached.
+        headers = dict(
+            kwargs.pop("headers", {}),
+            Authorization="Bearer %s" % account.sudo().access_token,
+        )
         try:
             response = requests.request(method, url, headers=headers, timeout=30, **kwargs)
             payload = response.json()

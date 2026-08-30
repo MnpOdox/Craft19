@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import json
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from odoo import fields
 from odoo.exceptions import AccessError, ValidationError
@@ -46,6 +46,30 @@ class TestWhatsApp(TransactionCase):
         conversation.lead_id.user_id = self.sellers[1]
         self.assertEqual(self.env["odx.whatsapp.message"].with_user(self.sellers[0]).search_count([("id", "=", message.id)]), 0)
         self.assertEqual(self.env["odx.whatsapp.message"].with_user(self.sellers[1]).search_count([("id", "=", message.id)]), 1)
+
+    def test_salesperson_sends_without_credential_field_access(self):
+        conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
+            self.account, "+919988776655", "Credential Test"
+        )
+        conversation.last_inbound_at = fields.Datetime.now()
+        salesperson = conversation.owner_id
+
+        with self.assertRaises(AccessError):
+            self.account.with_user(salesperson).read(["access_token"])
+
+        response = Mock(ok=True)
+        response.json.return_value = {"messages": [{"id": "wamid.salesperson"}]}
+        with patch(
+            "odoo.addons.odx_whatsapp_integration.models.whatsapp.requests.request",
+            return_value=response,
+        ) as request:
+            message = conversation.with_user(salesperson).send_text("Hello from salesperson")
+
+        self.assertEqual(message.meta_message_id, "wamid.salesperson")
+        self.assertEqual(
+            request.call_args.kwargs["headers"]["Authorization"],
+            "Bearer token",
+        )
 
     def test_lead_panel_recovers_from_stale_conversation_selection(self):
         previous = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
