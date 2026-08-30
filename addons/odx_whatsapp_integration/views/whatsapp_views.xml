@@ -92,6 +92,27 @@
         </field>
     </record>
     <record id="view_whatsapp_event_list" model="ir.ui.view"><field name="name">odx.whatsapp.event.list</field><field name="model">odx.whatsapp.event</field><field name="arch" type="xml"><list create="0" delete="0"><field name="create_date"/><field name="account_id"/><field name="state" decoration-danger="state == 'failed'" decoration-success="state == 'done'"/><field name="retry_count"/><field name="processed_at"/><field name="error_message"/></list></field></record>
+    <record id="view_meta_form_whatsapp_auto_template" model="ir.ui.view">
+        <field name="name">odx.meta.form.whatsapp.auto.template</field>
+        <field name="model">odx.meta.form</field>
+        <field name="inherit_id" ref="odx_meta_lead_integration.view_meta_form_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='campaign_id']/.." position="after">
+                <group string="Automatic WhatsApp" groups="odx_whatsapp_integration.group_whatsapp_manager">
+                    <group>
+                        <field name="whatsapp_auto_send_enabled"/>
+                        <field name="whatsapp_auto_account_id" required="whatsapp_auto_send_enabled" invisible="not whatsapp_auto_send_enabled"/>
+                        <field name="whatsapp_auto_template_id" required="whatsapp_auto_send_enabled" invisible="not whatsapp_auto_send_enabled"/>
+                        <field name="whatsapp_auto_template_parameters" placeholder="One variable value per line, e.g. {{contact_name}}" invisible="not whatsapp_auto_send_enabled"/>
+                    </group>
+                    <group invisible="not whatsapp_auto_send_enabled">
+                        <field name="whatsapp_auto_last_sent_at" readonly="1"/>
+                        <field name="whatsapp_auto_last_error" readonly="1" invisible="not whatsapp_auto_last_error"/>
+                    </group>
+                </group>
+            </xpath>
+        </field>
+    </record>
     <record id="action_whatsapp_conversation" model="ir.actions.act_window"><field name="name">My WhatsApp Conversations</field><field name="res_model">odx.whatsapp.conversation</field><field name="view_mode">list,form</field><field name="context">{'search_default_open': 1}</field></record>
     <record id="action_whatsapp_inbox" model="ir.actions.client"><field name="name">WhatsApp Inbox</field><field name="tag">odx_whatsapp_integration.Inbox</field></record>
     <record id="action_whatsapp_account" model="ir.actions.act_window"><field name="name">WhatsApp Accounts</field><field name="res_model">odx.whatsapp.account</field><field name="view_mode">list,form</field></record>

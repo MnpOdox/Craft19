@@ -61,6 +61,90 @@ class TestWhatsApp(TransactionCase):
         self.assertEqual(panel["selected_conversation_id"], current.id)
         self.assertEqual(panel["chat"]["id"], current.id)
 
+    def _meta_form_with_auto_template(self, suffix="success"):
+        meta_account = self.env["odx.meta.account"].create({
+            "name": "Meta Auto %s" % suffix,
+            "app_id": "meta-app-%s" % suffix,
+            "app_secret": "meta-secret",
+            "access_token": "meta-token",
+        })
+        page = self.env["odx.meta.page"].create({
+            "name": "Meta Page %s" % suffix,
+            "account_id": meta_account.id,
+            "meta_page_ref": "page-%s" % suffix,
+        })
+        template = self.env["odx.whatsapp.template"].create({
+            "account_id": self.account.id,
+            "meta_template_id": "auto-template-%s" % suffix,
+            "name": "welcome_%s" % suffix,
+            "language": "en_US",
+            "status": "approved",
+            "category": "marketing",
+            "components_json": json.dumps([{
+                "type": "BODY", "text": "Hello {{1}}, thank you for your enquiry.",
+            }]),
+        })
+        form = self.env["odx.meta.form"].create({
+            "name": "Auto Form %s" % suffix,
+            "page_id": page.id,
+            "meta_form_ref": "form-%s" % suffix,
+            "team_id": self.team.id,
+            "whatsapp_auto_send_enabled": True,
+            "whatsapp_auto_account_id": self.account.id,
+            "whatsapp_auto_template_id": template.id,
+            "whatsapp_auto_template_parameters": "{{contact_name}}",
+        })
+        phone_field = self.env["ir.model.fields"]._get("crm.lead", "phone")
+        self.env["odx.meta.field.mapping"].create({
+            "form_id": form.id,
+            "meta_field": "phone_number",
+            "odoo_field_id": phone_field.id,
+        })
+        return form
+
+    def test_meta_form_sends_configured_template_once(self):
+        form = self._meta_form_with_auto_template()
+        payload = {
+            "id": "meta-auto-lead-success",
+            "created_time": "2026-08-30T10:00:00+0000",
+            "field_data": [
+                {"name": "full_name", "values": ["Auto Customer"]},
+                {"name": "phone_number", "values": ["+919811223344"]},
+            ],
+        }
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.auto-template"}],
+        }) as api_call:
+            lead = form._import_payload(payload)
+            duplicate = form._import_payload(payload)
+
+        self.assertEqual(duplicate, lead)
+        self.assertEqual(api_call.call_count, 1)
+        request = api_call.call_args.kwargs["json"]
+        self.assertEqual(request["to"], "919811223344")
+        self.assertEqual(request["template"]["components"][0]["parameters"][0]["text"], "Auto Customer")
+        self.assertEqual(lead.whatsapp_auto_template_state, "sent")
+        self.assertEqual(lead.whatsapp_auto_template_message_id.meta_message_id, "wamid.auto-template")
+        self.assertTrue(form.whatsapp_auto_last_sent_at)
+        self.assertFalse(form.whatsapp_auto_last_error)
+
+    def test_meta_lead_creation_survives_automatic_template_failure(self):
+        form = self._meta_form_with_auto_template("failure")
+        payload = {
+            "id": "meta-auto-lead-failure",
+            "field_data": [
+                {"name": "full_name", "values": ["No Phone Customer"]},
+                {"name": "phone_number", "values": ["invalid"]},
+            ],
+        }
+
+        lead = form._import_payload(payload)
+
+        self.assertTrue(lead.exists())
+        self.assertEqual(lead.whatsapp_auto_template_state, "failed")
+        self.assertIn("valid phone", lead.whatsapp_auto_template_error)
+        self.assertEqual(form.whatsapp_auto_last_error, lead.whatsapp_auto_template_error)
+
     def test_message_after_won_lead_creates_new_lead(self):
         phone = "+918787878787"
         first = self.env["odx.whatsapp.message"]._ingest_message(self.account, {

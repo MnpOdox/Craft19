@@ -6,6 +6,6 @@
             <field name="whatsapp_conversation_count" invisible="1"/>
             <widget name="odx_whatsapp_lead_drawer" groups="odx_whatsapp_integration.group_whatsapp_user" invisible="not id or not whatsapp_can_access"/>
         </xpath>
-        <xpath expr="//field[@name='phone']" position="after"><field name="whatsapp_phone" readonly="1" optional="hide"/><field name="whatsapp_previous_lead_id" readonly="1" optional="hide"/></xpath>
+        <xpath expr="//field[@name='phone']" position="after"><field name="whatsapp_phone" readonly="1" optional="hide"/><field name="whatsapp_previous_lead_id" readonly="1" optional="hide"/><field name="whatsapp_auto_template_state" readonly="1" invisible="not meta_lead_id"/><field name="whatsapp_auto_template_message_id" readonly="1" invisible="not meta_lead_id or not whatsapp_auto_template_message_id"/><field name="whatsapp_auto_template_error" readonly="1" invisible="not meta_lead_id or not whatsapp_auto_template_error"/></xpath>
     </field></record>
 </odoo>

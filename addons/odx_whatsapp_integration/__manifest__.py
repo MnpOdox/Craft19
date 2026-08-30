@@ -1,10 +1,10 @@
 {
     "name": "ODX WhatsApp Integration",
-    "version": "19.0.3.2.0",
+    "version": "19.0.4.0.0",
     "summary": "Private CRM conversations using Meta WhatsApp Cloud API",
     "author": "OpenAI",
     "license": "LGPL-3",
-    "depends": ["crm", "mail"],
+    "depends": ["crm", "mail", "odx_meta_lead_integration"],
     "data": [
         "security/whatsapp_security.xml",
         "security/ir.model.access.csv",

@@ -31,6 +31,15 @@ class CrmLead(models.Model):
         "crm.lead", string="Previous WhatsApp Lead", readonly=True, copy=False,
         help="The won lead that preceded this new WhatsApp enquiry.",
     )
+    whatsapp_auto_template_state = fields.Selection([
+        ("pending", "Pending"), ("sent", "Sent"), ("failed", "Failed"),
+    ], string="Automatic WhatsApp", readonly=True, copy=False)
+    whatsapp_auto_template_message_id = fields.Many2one(
+        "odx.whatsapp.message", string="Automatic WhatsApp Message", readonly=True, copy=False,
+    )
+    whatsapp_auto_template_error = fields.Text(
+        string="Automatic WhatsApp Error", readonly=True, copy=False,
+    )
 
     @api.depends("phone", "whatsapp_conversation_ids.last_message_at")
     def _compute_whatsapp(self):
