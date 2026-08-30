@@ -10,6 +10,8 @@ from odoo.exceptions import AccessError, ValidationError
 from odoo.tests import tagged
 from odoo.tests.common import TransactionCase
 
+from ..controllers.webhook import _redact_sensitive_query
+
 
 @tagged("post_install", "-at_install")
 class TestWhatsApp(TransactionCase):
@@ -88,6 +90,17 @@ class TestWhatsApp(TransactionCase):
         self.assertTrue(self.account.verify_signature(raw, "sha256=%s" % digest))
         self.assertFalse(self.account.verify_signature(raw, "sha256=wrong"))
         self.assertFalse(self.account.verify_signature(raw, False))
+
+    def test_sensitive_webhook_query_values_are_redacted(self):
+        value = (
+            'GET /odx/whatsapp/webhook/1?hub.mode=subscribe&'
+            'hub.verify_token=super-secret&hub.challenge=test&access_token=api-secret HTTP/1.1'
+        )
+        redacted = _redact_sensitive_query(value)
+        self.assertNotIn("super-secret", redacted)
+        self.assertNotIn("api-secret", redacted)
+        self.assertIn("hub.verify_token=[REDACTED]", redacted)
+        self.assertIn("access_token=[REDACTED]", redacted)
 
     def test_duplicate_inbound_message_is_idempotent(self):
         payload = {

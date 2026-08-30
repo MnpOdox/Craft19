@@ -1,11 +1,40 @@
 import json
 import hashlib
 import logging
+import re
 
 from odoo import http
 from odoo.http import request
 
 _logger = logging.getLogger(__name__)
+
+_SENSITIVE_QUERY_RE = re.compile(
+    r'''((?:[?&]|\b)(?:hub\.verify_token|access_token)=)[^&\s"']+''',
+    flags=re.IGNORECASE,
+)
+
+
+def _redact_sensitive_query(value):
+    if not isinstance(value, str):
+        return value
+    return _SENSITIVE_QUERY_RE.sub(r"\1[REDACTED]", value)
+
+
+class _SensitiveQueryFilter(logging.Filter):
+    def filter(self, record):
+        record.msg = _redact_sensitive_query(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(_redact_sensitive_query(value) for value in record.args)
+        elif isinstance(record.args, dict):
+            record.args = {
+                key: _redact_sensitive_query(value) for key, value in record.args.items()
+            }
+        return True
+
+
+_werkzeug_logger = logging.getLogger("werkzeug")
+if not any(isinstance(item, _SensitiveQueryFilter) for item in _werkzeug_logger.filters):
+    _werkzeug_logger.addFilter(_SensitiveQueryFilter())
 
 
 class WhatsAppWebhook(http.Controller):
