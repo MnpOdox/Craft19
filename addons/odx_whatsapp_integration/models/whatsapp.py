@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 
-from odoo import _, api, fields, models
+from odoo import _, api, fields, models, Command
 from odoo.exceptions import AccessError, UserError, ValidationError
 
 from .crm_lead import is_valid_whatsapp_phone, normalize_phone
@@ -33,7 +33,11 @@ class WhatsAppApiMixin(models.AbstractModel):
             raise UserError(_("WhatsApp API connection failed: %s", exc)) from exc
         if not response.ok:
             error = payload.get("error", {}) if isinstance(payload, dict) else {}
-            raise UserError(_("WhatsApp API error: %s", error.get("message") or response.text[:500]))
+            details = (error.get("error_data") or {}).get("details")
+            message = details or error.get("error_user_msg") or error.get("message") or response.text[:500]
+            code = error.get("code")
+            raise UserError(_("WhatsApp API error%(code)s: %(message)s",
+                              code=" (%s)" % code if code else "", message=message))
         return payload
 
 
@@ -116,20 +120,15 @@ class WhatsAppAccount(models.Model):
     def action_sync_templates(self):
         for account in self:
             data = account._api(account, "GET", "%s/message_templates" % account.waba_id,
-                                params={"fields": "id,name,language,status,category,components", "limit": 250})
+                                params={
+                                    "fields": "id,name,language,status,category,components,rejected_reason,quality_score",
+                                    "limit": 250,
+                                })
             for item in data.get("data", []):
                 template = self.env["odx.whatsapp.template"].search([
                     ("account_id", "=", account.id), ("meta_template_id", "=", str(item["id"]))
                 ], limit=1)
-                status = (item.get("status") or "pending").lower()
-                if status not in dict(self.env["odx.whatsapp.template"]._fields["status"].selection):
-                    status = "pending"
-                category = (item.get("category") or "utility").lower()
-                if category not in dict(self.env["odx.whatsapp.template"]._fields["category"].selection):
-                    category = "utility"
-                values = {"account_id": account.id, "meta_template_id": str(item["id"]), "name": item["name"],
-                          "language": item["language"], "status": status,
-                          "category": category, "components_json": json.dumps(item.get("components", []))}
+                values = self.env["odx.whatsapp.template"]._values_from_meta(item, account.id)
                 template.write(values) if template else template.create(values)
             account.last_template_sync_at = fields.Datetime.now()
         return True
@@ -151,15 +150,201 @@ class WhatsAppTemplate(models.Model):
 
     account_id = fields.Many2one("odx.whatsapp.account", required=True, ondelete="cascade")
     company_id = fields.Many2one(related="account_id.company_id", store=True)
-    meta_template_id = fields.Char(required=True, index=True)
+    meta_template_id = fields.Char(index=True, readonly=True, copy=False)
     name = fields.Char(required=True)
-    language = fields.Char(required=True)
-    status = fields.Selection([("approved", "Approved"), ("pending", "Pending"), ("rejected", "Rejected"), ("paused", "Paused"), ("disabled", "Disabled")], required=True)
+    language = fields.Char(required=True, default="en_US")
+    status = fields.Selection([
+        ("draft", "Draft"), ("pending", "Pending"), ("approved", "Approved"),
+        ("rejected", "Rejected"), ("paused", "Paused"), ("disabled", "Disabled"),
+        ("in_appeal", "In Appeal"), ("pending_deletion", "Pending Deletion"),
+    ], required=True, default="draft", readonly=True, copy=False)
     category = fields.Selection([("marketing", "Marketing"), ("utility", "Utility"), ("authentication", "Authentication")], default="utility")
+    allow_category_change = fields.Boolean(
+        default=True,
+        help="Allow Meta to move the template to the correct category instead of rejecting it.",
+    )
+    header_text = fields.Char(help="Optional text header. Meta allows one variable, {{1}}, in a text header.")
+    header_example = fields.Char(help="Example value for header variable {{1}}.")
+    body_text = fields.Text(help="Template body. Use sequential variables such as {{1}}, {{2}}.")
+    body_examples = fields.Text(help="One example value per line, in the same order as the body variables.")
+    footer_text = fields.Char(help="Optional footer shown below the message body.")
+    button_ids = fields.One2many("odx.whatsapp.template.button", "template_id", string="Buttons", copy=True)
     components_json = fields.Text(readonly=True)
+    rejection_reason = fields.Text(readonly=True, copy=False)
+    quality_score = fields.Char(readonly=True, copy=False)
+    submitted_at = fields.Datetime(readonly=True, copy=False)
+    last_status_check_at = fields.Datetime(readonly=True, copy=False)
     active = fields.Boolean(default=True)
 
     _template_unique = models.Constraint("UNIQUE(account_id, meta_template_id)", "This template is already synchronized.")
+
+    @api.model
+    def _status_from_meta(self, value):
+        status = (value or "pending").lower()
+        return status if status in dict(self._fields["status"].selection) else "pending"
+
+    @api.model
+    def _values_from_meta(self, item, account_id=False):
+        components = item.get("components") or []
+        category = (item.get("category") or "utility").lower()
+        if category not in dict(self._fields["category"].selection):
+            category = "utility"
+        values = {
+            "meta_template_id": str(item["id"]),
+            "name": item.get("name"),
+            "language": item.get("language"),
+            "status": self._status_from_meta(item.get("status")),
+            "category": category,
+            "components_json": json.dumps(components),
+            "rejection_reason": item.get("rejected_reason") or False,
+            "last_status_check_at": fields.Datetime.now(),
+        }
+        if account_id:
+            values["account_id"] = account_id
+        quality = item.get("quality_score")
+        values["quality_score"] = quality.get("score") if isinstance(quality, dict) else quality or False
+        button_commands = [Command.clear()]
+        for component in components:
+            component_type = (component.get("type") or "").upper()
+            if component_type == "HEADER" and (component.get("format") or "TEXT").upper() == "TEXT":
+                values["header_text"] = component.get("text") or False
+                examples = (component.get("example") or {}).get("header_text") or []
+                values["header_example"] = examples[0] if examples else False
+            elif component_type == "BODY":
+                values["body_text"] = component.get("text") or False
+                examples = (component.get("example") or {}).get("body_text") or []
+                values["body_examples"] = "\n".join(str(value) for value in (examples[0] if examples else []))
+            elif component_type == "FOOTER":
+                values["footer_text"] = component.get("text") or False
+            elif component_type == "BUTTONS":
+                for button in component.get("buttons") or []:
+                    kind = (button.get("type") or "").upper()
+                    mapped = {"QUICK_REPLY": "quick_reply", "URL": "url", "PHONE_NUMBER": "phone"}.get(kind)
+                    if not mapped:
+                        continue
+                    example = button.get("example") or []
+                    button_commands.append(Command.create({
+                        "button_type": mapped,
+                        "text": button.get("text"),
+                        "url": button.get("url"),
+                        "url_example": example[0] if isinstance(example, list) and example else False,
+                        "phone_number": button.get("phone_number"),
+                    }))
+        values["button_ids"] = button_commands
+        return values
+
+    @staticmethod
+    def _placeholder_numbers(value):
+        return [int(number) for number in re.findall(r"\{\{(\d+)\}\}", value or "")]
+
+    @staticmethod
+    def _example_values(value):
+        return [line.strip() for line in (value or "").splitlines() if line.strip()]
+
+    @api.constrains("name")
+    def _check_template_name(self):
+        for template in self:
+            if not re.fullmatch(r"[a-z0-9_]{1,512}", template.name or ""):
+                raise ValidationError(_("Template names may contain only lowercase letters, numbers, and underscores."))
+
+    def _validate_draft(self):
+        self.ensure_one()
+        if self.category == "authentication":
+            raise ValidationError(_("Authentication templates have a Meta-specific OTP structure and are currently sync-only."))
+        if not self.body_text:
+            raise ValidationError(_("Enter the template body before submitting it."))
+        limits = [(self.header_text, 60, _("Header")), (self.body_text, 1024, _("Body")),
+                  (self.footer_text, 60, _("Footer"))]
+        for value, limit, label in limits:
+            if value and len(value) > limit:
+                raise ValidationError(_("%(label)s cannot exceed %(limit)s characters.", label=label, limit=limit))
+        body_numbers = self._placeholder_numbers(self.body_text)
+        unique_body_numbers = sorted(set(body_numbers))
+        if unique_body_numbers and unique_body_numbers != list(range(1, max(unique_body_numbers) + 1)):
+            raise ValidationError(_("Body variables must be sequential, starting with {{1}}."))
+        body_examples = self._example_values(self.body_examples)
+        if len(body_examples) != len(unique_body_numbers):
+            raise ValidationError(_("Provide exactly one body example per variable, one value per line."))
+        header_numbers = self._placeholder_numbers(self.header_text)
+        if header_numbers not in ([], [1]):
+            raise ValidationError(_("A text header may contain only one variable: {{1}}."))
+        if bool(header_numbers) != bool(self.header_example):
+            raise ValidationError(_("Provide a header example when using {{1}}, and remove it when no header variable is used."))
+        if len(self.button_ids) > 10:
+            raise ValidationError(_("Meta permits at most 10 template buttons."))
+        if len(self.button_ids.filtered(lambda button: button.button_type in ("url", "phone"))) > 2:
+            raise ValidationError(_("Meta permits at most two call-to-action buttons."))
+        for button in self.button_ids:
+            button._validate_for_meta()
+
+    def _build_components(self):
+        self.ensure_one()
+        self._validate_draft()
+        components = []
+        if self.header_text:
+            header = {"type": "HEADER", "format": "TEXT", "text": self.header_text}
+            if self._placeholder_numbers(self.header_text):
+                header["example"] = {"header_text": [self.header_example]}
+            components.append(header)
+        body = {"type": "BODY", "text": self.body_text}
+        body_examples = self._example_values(self.body_examples)
+        if body_examples:
+            body["example"] = {"body_text": [body_examples]}
+        components.append(body)
+        if self.footer_text:
+            components.append({"type": "FOOTER", "text": self.footer_text})
+        if self.button_ids:
+            components.append({"type": "BUTTONS", "buttons": [button._meta_payload() for button in self.button_ids]})
+        return components
+
+    def action_submit_to_meta(self):
+        self.ensure_one()
+        if not self.env.user.has_group("odx_whatsapp_integration.group_whatsapp_manager"):
+            raise AccessError(_("Only WhatsApp managers can submit templates to Meta."))
+        if self.status != "draft" or self.meta_template_id:
+            raise ValidationError(_("Only an unsubmitted draft can be submitted to Meta."))
+        components = self._build_components()
+        payload = {
+            "name": self.name,
+            "language": self.language,
+            "category": self.category.upper(),
+            "allow_category_change": self.allow_category_change,
+            "components": components,
+        }
+        result = self.account_id._api(
+            self.account_id, "POST", "%s/message_templates" % self.account_id.waba_id, json=payload
+        )
+        if not result.get("id"):
+            raise UserError(_("Meta accepted no template ID. Please try again or check the integration logs."))
+        self.write({
+            "meta_template_id": str(result["id"]),
+            "status": self._status_from_meta(result.get("status")),
+            "category": (result.get("category") or self.category).lower(),
+            "components_json": json.dumps(components),
+            "submitted_at": fields.Datetime.now(),
+            "last_status_check_at": fields.Datetime.now(),
+            "rejection_reason": False,
+        })
+        return {"type": "ir.actions.client", "tag": "display_notification", "params": {
+            "title": _("Template submitted"),
+            "message": _("Meta is reviewing %(name)s. Use Check Approval Status to refresh it.", name=self.name),
+            "type": "success",
+        }}
+
+    def action_refresh_status(self):
+        for template in self:
+            if not template.meta_template_id:
+                raise ValidationError(_("Submit the draft to Meta before checking its status."))
+            item = template.account_id._api(
+                template.account_id, "GET", template.meta_template_id,
+                params={"fields": "id,name,language,status,category,components,rejected_reason,quality_score"},
+            )
+            template.write(template._values_from_meta(item))
+        return {"type": "ir.actions.client", "tag": "display_notification", "params": {
+            "title": _("Template status refreshed"),
+            "message": _("Meta's latest template status is now displayed."),
+            "type": "success",
+        }}
 
     def _panel_data(self):
         result = []
@@ -178,6 +363,50 @@ class WhatsAppTemplate(models.Model):
                 "buttons": buttons, "parameter_count": max(placeholders, default=0),
             })
         return result
+
+
+class WhatsAppTemplateButton(models.Model):
+    _name = "odx.whatsapp.template.button"
+    _description = "WhatsApp Template Button"
+    _order = "sequence, id"
+
+    template_id = fields.Many2one("odx.whatsapp.template", required=True, ondelete="cascade")
+    sequence = fields.Integer(default=10)
+    button_type = fields.Selection([
+        ("quick_reply", "Quick Reply"), ("url", "Visit Website"), ("phone", "Call Phone Number"),
+    ], required=True, default="quick_reply")
+    text = fields.Char(required=True)
+    url = fields.Char()
+    url_example = fields.Char(help="Required when the URL contains {{1}}. Enter the complete sample URL.")
+    phone_number = fields.Char(help="Phone number in international format, for example +919876543210.")
+
+    def _validate_for_meta(self):
+        self.ensure_one()
+        if not self.text or len(self.text) > 25:
+            raise ValidationError(_("Button text is required and cannot exceed 25 characters."))
+        if self.button_type == "url":
+            if not self.url or not self.url.startswith(("https://", "http://")):
+                raise ValidationError(_("Website buttons require a complete HTTP or HTTPS URL."))
+            variables = WhatsAppTemplate._placeholder_numbers(self.url)
+            if variables not in ([], [1]):
+                raise ValidationError(_("A website button URL may contain only one variable: {{1}}."))
+            if bool(variables) != bool(self.url_example):
+                raise ValidationError(_("Provide a complete URL example when using {{1}}."))
+        elif self.button_type == "phone":
+            if not is_valid_whatsapp_phone(normalize_phone(self.phone_number)):
+                raise ValidationError(_("Phone buttons require a valid international phone number."))
+
+    def _meta_payload(self):
+        self.ensure_one()
+        self._validate_for_meta()
+        if self.button_type == "quick_reply":
+            return {"type": "QUICK_REPLY", "text": self.text}
+        if self.button_type == "url":
+            payload = {"type": "URL", "text": self.text, "url": self.url}
+            if self.url_example:
+                payload["example"] = [self.url_example]
+            return payload
+        return {"type": "PHONE_NUMBER", "text": self.text, "phone_number": normalize_phone(self.phone_number)}
 
 
 class WhatsAppConversation(models.Model):

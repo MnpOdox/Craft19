@@ -102,6 +102,57 @@ class TestWhatsApp(TransactionCase):
         self.assertIn("hub.verify_token=[REDACTED]", redacted)
         self.assertIn("access_token=[REDACTED]", redacted)
 
+    def test_manager_can_submit_template_and_refresh_meta_approval(self):
+        template = self.env["odx.whatsapp.template"].create({
+            "account_id": self.account.id,
+            "name": "order_ready_notice",
+            "language": "en_US",
+            "category": "utility",
+            "header_text": "Order {{1}}",
+            "header_example": "ORDER-1001",
+            "body_text": "Hello {{1}}, your order {{2}} is ready.",
+            "body_examples": "Customer\nORDER-1001",
+            "footer_text": "Thank you",
+            "button_ids": [(0, 0, {"button_type": "quick_reply", "text": "Confirm"}),
+                           (0, 0, {"button_type": "url", "text": "Track order",
+                                   "url": "https://example.com/orders/{{1}}",
+                                   "url_example": "https://example.com/orders/ORDER-1001"})],
+        })
+        with patch.object(type(self.account), "_api", return_value={
+            "id": "meta-template-new", "status": "PENDING", "category": "UTILITY",
+        }) as api_call:
+            template.action_submit_to_meta()
+        payload = api_call.call_args.kwargs["json"]
+        self.assertEqual(payload["name"], "order_ready_notice")
+        self.assertEqual(payload["components"][0]["example"]["header_text"], ["ORDER-1001"])
+        self.assertEqual(payload["components"][1]["example"]["body_text"], [["Customer", "ORDER-1001"]])
+        self.assertEqual(payload["components"][-1]["buttons"][1]["type"], "URL")
+        self.assertEqual(template.meta_template_id, "meta-template-new")
+        self.assertEqual(template.status, "pending")
+
+        approved_components = payload["components"]
+        with patch.object(type(self.account), "_api", return_value={
+            "id": "meta-template-new", "name": "order_ready_notice", "language": "en_US",
+            "status": "APPROVED", "category": "UTILITY", "components": approved_components,
+            "quality_score": {"score": "GREEN"},
+        }):
+            template.action_refresh_status()
+        self.assertEqual(template.status, "approved")
+        self.assertEqual(template.quality_score, "GREEN")
+        self.assertEqual(len(template.button_ids), 2)
+
+    def test_template_submission_validates_variable_examples(self):
+        template = self.env["odx.whatsapp.template"].create({
+            "account_id": self.account.id,
+            "name": "invalid_examples",
+            "language": "en_US",
+            "category": "utility",
+            "body_text": "Hello {{1}}, order {{2}} is ready.",
+            "body_examples": "Customer",
+        })
+        with self.assertRaises(ValidationError):
+            template.action_submit_to_meta()
+
     def test_duplicate_inbound_message_is_idempotent(self):
         payload = {
             "id": "wamid.duplicate", "from": "+916666666666", "timestamp": "1700000000",

@@ -18,7 +18,79 @@
         <group string="Webhook"><field name="webhook_base_url" required="1" placeholder="https://example.com"/><field name="webhook_callback_url" readonly="1" widget="CopyClipboardChar"/></group>
         <notebook><page string="Templates"><field name="template_ids"><list create="0" delete="0"><field name="name"/><field name="language"/><field name="category"/><field name="status"/><field name="active"/></list></field></page></notebook>
     </sheet><chatter/></form></field></record>
-    <record id="view_whatsapp_template_list" model="ir.ui.view"><field name="name">odx.whatsapp.template.list</field><field name="model">odx.whatsapp.template</field><field name="arch" type="xml"><list create="0" delete="0"><field name="name"/><field name="account_id"/><field name="language"/><field name="category"/><field name="status"/><field name="active"/></list></field></record>
+    <record id="view_whatsapp_template_list" model="ir.ui.view">
+        <field name="name">odx.whatsapp.template.list</field>
+        <field name="model">odx.whatsapp.template</field>
+        <field name="arch" type="xml">
+            <list delete="0" decoration-success="status == 'approved'" decoration-danger="status == 'rejected'" decoration-warning="status == 'pending'">
+                <field name="name"/><field name="account_id"/><field name="language"/><field name="category"/>
+                <field name="status"/><field name="quality_score" optional="hide"/><field name="last_status_check_at" optional="hide"/><field name="active"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_whatsapp_template_form" model="ir.ui.view">
+        <field name="name">odx.whatsapp.template.form</field>
+        <field name="model">odx.whatsapp.template</field>
+        <field name="arch" type="xml">
+            <form delete="0">
+                <header>
+                    <button name="action_submit_to_meta" type="object" string="Submit to Meta" class="btn-primary" invisible="status != 'draft'"/>
+                    <button name="action_refresh_status" type="object" string="Check Approval Status" invisible="not meta_template_id"/>
+                    <field name="status" widget="statusbar" statusbar_visible="draft,pending,approved,rejected,paused,disabled"/>
+                </header>
+                <sheet>
+                    <div class="oe_title"><label for="name"/><h1><field name="name" placeholder="order_confirmation" readonly="status != 'draft'"/></h1></div>
+                    <div class="alert alert-info" role="alert" invisible="status != 'draft'">
+                        Meta is the approval authority. Submit this draft, then use Check Approval Status until Meta returns Approved or Rejected.
+                    </div>
+                    <div class="alert alert-danger" role="alert" invisible="not rejection_reason">
+                        <strong>Meta rejection reason:</strong> <field name="rejection_reason" nolabel="1" readonly="1"/>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="account_id" readonly="status != 'draft'"/>
+                            <field name="language" readonly="status != 'draft'"/>
+                            <field name="category" readonly="status != 'draft'"/>
+                            <field name="allow_category_change" readonly="status != 'draft'"/>
+                        </group>
+                        <group>
+                            <field name="meta_template_id" readonly="1"/>
+                            <field name="quality_score" readonly="1"/>
+                            <field name="submitted_at" readonly="1"/>
+                            <field name="last_status_check_at" readonly="1"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Content">
+                            <group>
+                                <field name="header_text" placeholder="Optional text header" readonly="status != 'draft'"/>
+                                <field name="header_example" placeholder="Example for header {{1}}" readonly="status != 'draft'" invisible="not header_text"/>
+                                <field name="body_text" placeholder="Hello {{1}}, your order {{2}} is ready." readonly="status != 'draft'"/>
+                                <field name="body_examples" placeholder="Customer name&#10;ORDER-1001" readonly="status != 'draft'"/>
+                                <field name="footer_text" placeholder="Thank you for choosing us" readonly="status != 'draft'"/>
+                            </group>
+                        </page>
+                        <page string="Buttons">
+                            <field name="button_ids" readonly="status != 'draft'">
+                                <list editable="bottom">
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="button_type"/>
+                                    <field name="text"/>
+                                    <field name="url" optional="show"/>
+                                    <field name="url_example" optional="hide"/>
+                                    <field name="phone_number" optional="show"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Meta Payload" groups="odx_whatsapp_integration.group_whatsapp_manager">
+                            <field name="components_json" nolabel="1" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
     <record id="view_whatsapp_event_list" model="ir.ui.view"><field name="name">odx.whatsapp.event.list</field><field name="model">odx.whatsapp.event</field><field name="arch" type="xml"><list create="0" delete="0"><field name="create_date"/><field name="account_id"/><field name="state" decoration-danger="state == 'failed'" decoration-success="state == 'done'"/><field name="retry_count"/><field name="processed_at"/><field name="error_message"/></list></field></record>
     <record id="action_whatsapp_conversation" model="ir.actions.act_window"><field name="name">My WhatsApp Conversations</field><field name="res_model">odx.whatsapp.conversation</field><field name="view_mode">list,form</field><field name="context">{'search_default_open': 1}</field></record>
     <record id="action_whatsapp_inbox" model="ir.actions.client"><field name="name">WhatsApp Inbox</field><field name="tag">odx_whatsapp_integration.Inbox</field></record>
