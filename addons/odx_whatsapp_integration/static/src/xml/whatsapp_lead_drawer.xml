@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="odx_whatsapp_integration.LeadDrawer">
+        <button t-if="canOpen" type="button" class="oe_stat_button o_wa_lead_toggle" t-on-click="toggle" title="Open private WhatsApp chat">
+            <i class="fa fa-whatsapp o_button_icon"/><span class="o_stat_info"><span class="o_stat_value" t-esc="props.record.data.whatsapp_conversation_count || 0"/><span class="o_stat_text">WhatsApp</span></span>
+        </button>
+        <t t-if="state.open">
+            <div class="o_wa_drawer_backdrop" t-on-click="close"/>
+            <aside class="o_wa_lead_drawer">
+                <header class="o_wa_drawer_header">
+                    <div class="o_wa_drawer_avatar" t-esc="initials(state.data?.contact_name || props.record.data.contact_name)"/>
+                    <div class="o_wa_drawer_identity"><strong t-esc="state.data?.contact_name || props.record.data.contact_name || props.record.data.name"/><span><i class="fa fa-whatsapp"/> <t t-esc="state.data?.phone || props.record.data.phone || 'No phone number'"/></span></div>
+                    <button t-on-click="openInbox" title="Open full WhatsApp inbox"><i class="fa fa-external-link"/></button>
+                    <button t-on-click="close" title="Close"><i class="fa fa-times"/></button>
+                </header>
+                <div class="o_wa_drawer_selectors" t-if="state.data">
+                    <label><span>Business number</span><select t-on-change="changeAccount" t-att-value="state.data.selected_account_id || ''"><option t-foreach="state.data.accounts" t-as="account" t-key="account.id" t-att-value="account.id"><t t-esc="account.name"/><t t-if="account.display_phone"> · <t t-esc="account.display_phone"/></t><t t-if="!account.active"> (inactive)</t></option></select></label>
+                    <label t-if="state.data.conversations.length > 1"><span>Conversation</span><select t-on-change="changeConversation" t-att-value="state.data.selected_conversation_id || ''"><option t-foreach="state.data.conversations" t-as="conversation" t-key="conversation.id" t-att-value="conversation.id"><t t-esc="conversation.account_name"/> · +<t t-esc="conversation.phone"/></option></select></label>
+                </div>
+                <div class="o_wa_drawer_status" t-if="chat">
+                    <span t-if="!state.data.accounts.length" class="danger"><i class="fa fa-plug"/> No business number configured</span>
+                    <span t-elif="!chat.account_active" class="danger"><i class="fa fa-plug"/> Account inactive</span>
+                    <span t-elif="chat.window_open" class="open"><i class="fa fa-clock-o"/> 24-hour window open</span>
+                    <span t-else="" class="closed"><i class="fa fa-lock"/> Approved template required</span>
+                    <i t-if="state.refreshing" class="fa fa-refresh fa-spin"/>
+                </div>
+                <section class="o_wa_drawer_timeline" t-ref="timeline">
+                    <div class="o_wa_drawer_loading" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin"/><span>Loading private conversation…</span></div>
+                    <t t-elif="chat">
+                        <button t-if="chat.has_older" class="o_wa_load_older" t-on-click="loadOlder"><i class="fa fa-history"/> Load older messages</button>
+                        <div class="o_wa_drawer_secure"><i class="fa fa-lock"/> Visible only to the assigned salesperson and WhatsApp managers</div>
+                        <t t-foreach="chat.messages" t-as="message" t-key="message.id">
+                            <div t-if="message.showDate" class="o_wa_date_separator"><span t-esc="message.dateLabel"/></div>
+                            <div class="o_wa_drawer_message" t-att-class="message.direction">
+                                <article t-att-class="message.state === 'failed' ? 'failed' : ''">
+                                    <span class="o_wa_drawer_type" t-if="message.type === 'template'"><i class="fa fa-file-text-o"/> <t t-esc="message.template_name || 'Template'"/></span>
+                                    <img t-if="message.has_attachment &amp;&amp; message.type === 'image'" t-att-src="mediaUrl(message)" t-att-alt="message.attachment_name"/>
+                                    <video t-if="message.has_attachment &amp;&amp; message.type === 'video'" controls="controls" t-att-src="mediaUrl(message)"/>
+                                    <audio t-if="message.has_attachment &amp;&amp; message.type === 'audio'" controls="controls" t-att-src="mediaUrl(message)"/>
+                                    <a t-if="message.has_attachment &amp;&amp; message.type === 'document'" t-att-href="mediaUrl(message)" target="_blank" class="o_wa_drawer_document"><i class="fa fa-file-o"/><span t-esc="message.attachment_name || 'Document'"/><i class="fa fa-download"/></a>
+                                    <p t-if="message.body" t-esc="message.body"/>
+                                    <div t-if="message.type === 'interactive' &amp;&amp; message.interactive.action" class="o_wa_reply_buttons"><span t-foreach="message.interactive.action.buttons || []" t-as="button" t-key="button.reply.id" t-esc="button.reply.title"/></div>
+                                    <span t-if="message.interactive_reply_title" class="o_wa_selected_reply"><i class="fa fa-reply"/> Selected: <t t-esc="message.interactive_reply_title"/></span>
+                                    <footer><time t-esc="formatTime(message.message_at)"/><span t-if="message.direction === 'outbound'" t-att-class="'state-' + message.state" t-esc="statusTicks(message.state)"/></footer>
+                                    <div t-if="message.error" class="o_wa_drawer_error"><i class="fa fa-exclamation-triangle"/> <t t-esc="message.error"/> <button t-if="message.state === 'failed'" t-on-click="() => this.retryMessage(message)"><i class="fa fa-refresh"/> Retry</button></div>
+                                </article>
+                            </div>
+                        </t>
+                        <div t-if="!chat.messages.length" class="o_wa_drawer_empty"><i class="fa fa-comments-o"/><strong>No messages yet</strong><span>Select an approved template to start this conversation.</span></div>
+                    </t>
+                </section>
+                <section class="o_wa_drawer_composer" t-if="chat">
+                    <div t-if="!state.data.accounts.length" class="o_wa_composer_notice">No WhatsApp business number is configured for this company.</div>
+                    <div t-elif="!chat.account_active" class="o_wa_composer_notice">This account is inactive. Contact an administrator.</div>
+                    <t t-else="">
+                        <nav class="o_wa_drawer_modes">
+                            <button t-att-class="state.mode === 'text' ? 'active' : ''" t-att-disabled="!chat.window_open || !selectedConversationId" t-on-click="() => this.setMode('text')" title="Text"><i class="fa fa-comment-o"/></button>
+                            <button t-att-class="state.mode === 'template' ? 'active' : ''" t-on-click="() => this.setMode('template')" title="Approved template"><i class="fa fa-file-text-o"/></button>
+                            <button t-att-disabled="!chat.window_open || !selectedConversationId" t-on-click="() => this.triggerFile('image')" title="Image"><i class="fa fa-image"/></button>
+                            <button t-att-disabled="!chat.window_open || !selectedConversationId" t-on-click="() => this.triggerFile('document')" title="Document"><i class="fa fa-paperclip"/></button>
+                            <button t-att-disabled="!chat.window_open || !selectedConversationId" t-on-click="() => this.triggerFile('audio')" title="Audio"><i class="fa fa-music"/></button>
+                            <button t-att-disabled="!chat.window_open || !selectedConversationId" t-on-click="() => this.triggerFile('video')" title="Video"><i class="fa fa-video-camera"/></button>
+                            <button t-att-class="state.mode === 'interactive' ? 'active' : ''" t-att-disabled="!chat.window_open || !selectedConversationId" t-on-click="() => this.setMode('interactive')" title="Quick answers"><i class="fa fa-list-ul"/></button>
+                            <input t-ref="fileInput" type="file" class="d-none" t-on-change="onFileChange"/>
+                        </nav>
+                        <div t-if="state.mode === 'text'" class="o_wa_inline_composer">
+                            <div class="o_wa_emoji_wrap"><button t-on-click="() => state.emojiOpen = !state.emojiOpen" title="Emoji">😊</button><div t-if="state.emojiOpen" class="o_wa_emoji_picker"><button t-foreach="emojis" t-as="emoji" t-key="emoji" t-on-click="() => this.addEmoji(emoji)" t-esc="emoji"/></div></div>
+                            <textarea rows="2" placeholder="Type a WhatsApp message…" t-model="state.text" t-on-keydown="onTextKeydown"/>
+                            <button t-if="!state.recording &amp;&amp; !state.voiceBase64" t-on-click="startRecording" title="Record voice note"><i class="fa fa-microphone"/></button>
+                            <button class="send" t-att-disabled="!state.text.trim() || state.sending" t-on-click="sendText"><i t-att-class="state.sending ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-paper-plane'"/></button>
+                        </div>
+                        <div t-if="state.recording || state.voiceBase64" class="o_wa_voice_bar">
+                            <t t-if="state.recording"><span class="pulse"/><strong t-esc="formatDuration(state.recordingSeconds)"/><button t-on-click="pauseRecording"><i t-att-class="state.recordingPaused ? 'fa fa-play' : 'fa fa-pause'"/></button><button t-on-click="stopRecording"><i class="fa fa-stop"/></button></t>
+                            <t t-else=""><audio controls="controls" t-att-src="state.voicePreview"/><button class="delete" t-on-click="discardRecording"><i class="fa fa-trash"/></button><button class="send" t-on-click="sendVoice"><i class="fa fa-paper-plane"/></button></t>
+                        </div>
+                        <div t-if="state.mode === 'template'" class="o_wa_drawer_template">
+                            <select t-on-change="onTemplateChange" t-att-value="state.templateId || ''"><option value="">Select approved template…</option><option t-foreach="chat.templates" t-as="template" t-key="template.id" t-att-value="template.id"><t t-esc="template.name"/> · <t t-esc="template.language"/></option></select>
+                            <div t-if="selectedTemplate" class="o_wa_drawer_preview"><small><t t-esc="selectedTemplate.category"/> · <t t-esc="selectedTemplate.language"/></small><strong t-if="selectedTemplate.header.text" t-esc="selectedTemplate.header.text"/><p t-esc="selectedTemplate.body || selectedTemplate.name"/><span t-foreach="selectedTemplate.buttons || []" t-as="button" t-key="button_index" t-esc="button.text"/></div>
+                            <input t-foreach="state.templateValues" t-as="value" t-key="value_index" type="text" t-att-placeholder="'Variable {{' + (value_index + 1) + '}}'" t-att-value="value" t-on-input="(ev) => this.setTemplateValue(value_index, ev)"/>
+                            <button class="o_wa_primary" t-att-disabled="!selectedTemplate || state.templateValues.some((value) => !value.trim()) || state.sending" t-on-click="sendTemplate"><i class="fa fa-paper-plane"/> Send template</button>
+                        </div>
+                        <div t-if="state.mode === 'media'" class="o_wa_media_preview">
+                            <t t-if="state.mediaItems.length">
+                                <div class="o_wa_drawer_batch_header"><strong><t t-esc="state.mediaItems.length"/> image<t t-if="state.mediaItems.length !== 1">s</t></strong><button t-if="state.mediaItems.length &lt; 10" t-on-click="() => this.triggerFile('image')"><i class="fa fa-plus"/> Add</button></div>
+                                <div class="o_wa_drawer_image_batch">
+                                    <article t-foreach="state.mediaItems" t-as="item" t-key="item.id"><div><img t-att-src="item.preview"/><button t-on-click="() => this.removeMediaItem(item_index)"><i class="fa fa-times"/></button></div><input type="text" placeholder="Caption (optional)" t-att-value="item.caption" t-on-input="(ev) => this.setMediaItemCaption(item_index, ev)"/></article>
+                                </div>
+                                <div><button t-on-click="clearMedia"><i class="fa fa-trash"/> Clear</button><button class="o_wa_primary" t-att-disabled="state.sending" t-on-click="sendMedia"><i t-att-class="state.sending ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-paper-plane'"/> Send <t t-esc="state.mediaItems.length"/></button></div>
+                            </t>
+                            <t t-else="">
+                                <img t-if="state.mediaType === 'image'" t-att-src="state.mediaPreview"/><video t-if="state.mediaType === 'video'" controls="controls" t-att-src="state.mediaPreview"/><audio t-if="state.mediaType === 'audio'" controls="controls" t-att-src="state.mediaPreview"/><span t-if="state.mediaType === 'document'"><i class="fa fa-file-o"/> <t t-esc="state.mediaName"/></span>
+                                <input type="text" placeholder="Caption (optional)" t-model="state.caption"/><div><button t-on-click="clearMedia"><i class="fa fa-trash"/> Remove</button><button class="o_wa_primary" t-on-click="sendMedia"><i class="fa fa-paper-plane"/> Send</button></div>
+                            </t>
+                        </div>
+                        <div t-if="state.mode === 'interactive'" class="o_wa_interactive_composer">
+                            <textarea rows="2" maxlength="1024" placeholder="Message or question" t-model="state.question"/>
+                            <label t-foreach="state.buttons" t-as="button" t-key="button_index"><span t-esc="button_index + 1"/><input maxlength="20" placeholder="Quick reply label" t-att-value="button" t-on-input="(ev) => this.setButton(button_index, ev)"/><button t-if="state.buttons.length > 1" t-on-click="() => this.removeButton(button_index)"><i class="fa fa-times"/></button></label>
+                            <div><button t-if="state.buttons.length &lt; 3" t-on-click="addButton"><i class="fa fa-plus"/> Add reply</button><button class="o_wa_primary" t-att-disabled="!state.question.trim() || !state.buttons.some((button) => button.trim()) || state.sending" t-on-click="sendInteractive"><i class="fa fa-paper-plane"/> Send question</button></div>
+                        </div>
+                    </t>
+                </section>
+            </aside>
+        </t>
+    </t>
+</templates>

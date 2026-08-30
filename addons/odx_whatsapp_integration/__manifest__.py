@@ -1,0 +1,30 @@
+{
+    "name": "ODX WhatsApp Integration",
+    "version": "19.0.2.0.0",
+    "summary": "Private CRM conversations using Meta WhatsApp Cloud API",
+    "author": "OpenAI",
+    "license": "LGPL-3",
+    "depends": ["crm", "mail"],
+    "data": [
+        "security/whatsapp_security.xml",
+        "security/ir.model.access.csv",
+        "data/ir_cron.xml",
+        "wizard/whatsapp_compose_views.xml",
+        "views/whatsapp_views.xml",
+        "views/crm_lead_views.xml",
+        "views/menu.xml",
+    ],
+    "assets": {
+        "web.assets_backend": [
+            "odx_whatsapp_integration/static/src/js/whatsapp_notification_service.js",
+            "odx_whatsapp_integration/static/src/js/whatsapp_inbox.js",
+            "odx_whatsapp_integration/static/src/xml/whatsapp_inbox.xml",
+            "odx_whatsapp_integration/static/src/scss/whatsapp_inbox.scss",
+            "odx_whatsapp_integration/static/src/js/whatsapp_lead_drawer.js",
+            "odx_whatsapp_integration/static/src/xml/whatsapp_lead_drawer.xml",
+            "odx_whatsapp_integration/static/src/scss/whatsapp_lead_drawer.scss",
+        ],
+    },
+    "installable": True,
+    "application": True,
+}

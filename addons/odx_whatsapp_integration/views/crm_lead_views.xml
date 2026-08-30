@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="crm_lead_view_form_whatsapp" model="ir.ui.view"><field name="name">crm.lead.form.whatsapp.private</field><field name="model">crm.lead</field><field name="inherit_id" ref="crm.crm_lead_view_form"/><field name="arch" type="xml">
+        <xpath expr="//div[@name='button_box']" position="inside">
+            <field name="whatsapp_can_access" invisible="1"/>
+            <field name="whatsapp_conversation_count" invisible="1"/>
+            <widget name="odx_whatsapp_lead_drawer" groups="odx_whatsapp_integration.group_whatsapp_user" invisible="not id or not whatsapp_can_access"/>
+        </xpath>
+        <xpath expr="//field[@name='phone']" position="after"><field name="whatsapp_phone" readonly="1" optional="hide"/><field name="whatsapp_previous_lead_id" readonly="1" optional="hide"/></xpath>
+    </field></record>
+</odoo>
