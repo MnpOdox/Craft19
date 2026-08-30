@@ -371,6 +371,21 @@ class WhatsAppTemplate(models.Model):
             })
         return result
 
+    def _render_body(self, parameters=None):
+        """Render the customer-visible template body for conversation history."""
+        self.ensure_one()
+        try:
+            components = json.loads(self.components_json or "[]")
+        except (TypeError, ValueError):
+            components = []
+        body = next(
+            (item.get("text", "") for item in components if (item.get("type") or "").upper() == "BODY"),
+            self.body_text or "",
+        )
+        for index, value in enumerate(parameters or [], start=1):
+            body = body.replace("{{%s}}" % index, str(value))
+        return body or self.name
+
 
 class WhatsAppTemplateButton(models.Model):
     _name = "odx.whatsapp.template.button"
@@ -467,7 +482,7 @@ class WhatsAppConversation(models.Model):
             "state": conversation.state,
             "last_message_at": self._ui_datetime(conversation.last_message_at),
             "last_inbound_at": self._ui_datetime(conversation.last_inbound_at),
-            "last_body": (last_by_conversation.get(conversation.id).body or "")[:160]
+            "last_body": last_by_conversation.get(conversation.id)._display_body()[:160]
                 if last_by_conversation.get(conversation.id) else "",
             "last_direction": last_by_conversation.get(conversation.id).direction
                 if last_by_conversation.get(conversation.id) else False,
@@ -517,7 +532,7 @@ class WhatsAppConversation(models.Model):
                 "id": message.id,
                 "direction": message.direction,
                 "type": message.message_type,
-                "body": message.body or "",
+                "body": message._display_body(),
                 "state": message.state,
                 "message_at": self._ui_datetime(message.message_at),
                 "attachment_name": message.attachment_name or "",
@@ -732,8 +747,15 @@ class WhatsAppConversation(models.Model):
             components = [{"type": "body", "parameters": [{"type": "text", "text": value} for value in parameters]}]
         payload = {"messaging_product": "whatsapp", "to": self.partner_phone, "type": "template",
                    "template": {"name": template.name, "language": {"code": template.language}, "components": components}}
-        message = self.env["odx.whatsapp.message"].with_context(odx_whatsapp_internal=True).create({"conversation_id": self.id, "direction": "outbound", "message_type": "template",
-                                                            "template_id": template.id, "body": " | ".join(parameters or []), "state": "pending"})
+        message = self.env["odx.whatsapp.message"].with_context(odx_whatsapp_internal=True).create({
+            "conversation_id": self.id,
+            "direction": "outbound",
+            "message_type": "template",
+            "template_id": template.id,
+            "body": template._render_body(parameters or []),
+            "template_parameters_json": json.dumps(parameters or []),
+            "state": "pending",
+        })
         return self._send_payload(payload, message)
 
     @staticmethod
@@ -934,6 +956,7 @@ class WhatsAppMessage(models.Model):
     message_type = fields.Selection([("text", "Text"), ("template", "Template"), ("image", "Image"), ("document", "Document"), ("audio", "Audio"), ("video", "Video"), ("interactive", "Interactive"), ("unsupported", "Unsupported")], required=True)
     body = fields.Text()
     template_id = fields.Many2one("odx.whatsapp.template", ondelete="set null")
+    template_parameters_json = fields.Text(readonly=True)
     attachment = fields.Binary(attachment=True)
     attachment_name = fields.Char()
     mimetype = fields.Char()
@@ -966,6 +989,26 @@ class WhatsAppMessage(models.Model):
 
     def unlink(self):
         raise AccessError(_("WhatsApp messages are audit records and cannot be deleted."))
+
+    def _template_parameters(self):
+        self.ensure_one()
+        if self.template_parameters_json:
+            try:
+                values = json.loads(self.template_parameters_json)
+                return values if isinstance(values, list) else []
+            except (TypeError, ValueError):
+                return []
+        # Compatibility with messages created before rendered template bodies
+        # were stored: their body contained parameters separated by " | ".
+        return (self.body or "").split(" | ") if self.body else []
+
+    def _display_body(self):
+        self.ensure_one()
+        if self.message_type != "template" or not self.template_id:
+            return self.body or ""
+        if self.template_parameters_json:
+            return self.body or self.template_id._render_body(self._template_parameters())
+        return self.template_id._render_body(self._template_parameters())
 
     def _notify_inbound(self):
         self.ensure_one()

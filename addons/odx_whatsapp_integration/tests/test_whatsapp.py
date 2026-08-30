@@ -592,12 +592,45 @@ class TestWhatsApp(TransactionCase):
             )
         self.assertTrue(sent_panel["selected_conversation_id"])
         self.assertEqual(sent_panel["chat"]["messages"][-1]["type"], "template")
+        self.assertEqual(sent_panel["chat"]["messages"][-1]["body"], "Hello Customer")
+        sent_message = self.env["odx.whatsapp.message"].browse(sent_panel["chat"]["messages"][-1]["id"])
+        self.assertEqual(sent_message.body, "Hello Customer")
+        self.assertEqual(json.loads(sent_message.template_parameters_json), ["Customer"])
         with self.assertRaises(AccessError):
             lead.with_user(self.sellers[1]).get_whatsapp_panel_data()
         lead.user_id = self.sellers[1]
         with self.assertRaises(AccessError):
             lead.with_user(self.sellers[0]).get_whatsapp_panel_data()
         self.assertTrue(lead.with_user(self.sellers[1]).get_whatsapp_panel_data()["selected_conversation_id"])
+
+    def test_legacy_template_history_renders_complete_message(self):
+        conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
+            self.account, "+919399887766", "Legacy Template Customer"
+        )
+        template = self.env["odx.whatsapp.template"].create({
+            "account_id": self.account.id,
+            "meta_template_id": "legacy-template",
+            "name": "legacy_greeting",
+            "language": "en_US",
+            "status": "approved",
+            "category": "utility",
+            "components_json": json.dumps([{
+                "type": "BODY", "text": "Hello {{1}}, thank you for your enquiry.",
+            }]),
+        })
+        legacy = self.env["odx.whatsapp.message"].sudo().create({
+            "conversation_id": conversation.id,
+            "direction": "outbound",
+            "message_type": "template",
+            "template_id": template.id,
+            "body": "Legacy Customer",
+            "state": "sent",
+        })
+
+        chat = conversation.with_user(conversation.owner_id).get_chat_data()
+
+        rendered = next(item for item in chat["messages"] if item["id"] == legacy.id)
+        self.assertEqual(rendered["body"], "Hello Legacy Customer, thank you for your enquiry.")
 
     def test_failed_message_retry_is_authorized_and_audited(self):
         conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(

@@ -1,6 +1,6 @@
 {
     "name": "ODX WhatsApp Integration",
-    "version": "19.0.4.0.3",
+    "version": "19.0.4.1.0",
     "summary": "Private CRM conversations using Meta WhatsApp Cloud API",
     "author": "OpenAI",
     "license": "LGPL-3",

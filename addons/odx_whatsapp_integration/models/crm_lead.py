@@ -191,7 +191,7 @@ class CrmLead(models.Model):
         if message.message_type == "text":
             conversation.send_text(message.body)
         elif message.message_type == "template":
-            conversation.send_template(message.template_id, (message.body or "").split(" | ") if message.body else [])
+            conversation.send_template(message.template_id, message._template_parameters())
         elif message.message_type in ("image", "document", "audio", "video"):
             conversation.send_media(
                 message.message_type, message.attachment, message.attachment_name, message.mimetype, message.body
