@@ -152,6 +152,29 @@ class TestWhatsApp(TransactionCase):
         self.assertTrue(form.whatsapp_auto_last_sent_at)
         self.assertFalse(form.whatsapp_auto_last_error)
 
+    def test_meta_auto_template_sudo_job_is_not_blocked_by_lead_owner(self):
+        form = self._meta_form_with_auto_template("sudo_job")
+        lead = self.env["crm.lead"].create({
+            "name": "Automated Lead",
+            "contact_name": "Automation Customer",
+            "phone": "+919811223355",
+            "company_id": self.env.company.id,
+            "team_id": self.team.id,
+            "user_id": self.sellers[0].id,
+        })
+
+        with patch.object(
+            type(self.account),
+            "_api",
+            return_value={"messages": [{"id": "wamid.sudo-job"}]},
+        ):
+            form.with_user(self.sellers[1]).sudo()._send_automatic_whatsapp_template(
+                lead.with_user(self.sellers[1])
+            )
+
+        self.assertEqual(lead.whatsapp_auto_template_state, "sent")
+        self.assertEqual(lead.whatsapp_auto_template_message_id.meta_message_id, "wamid.sudo-job")
+
     def test_meta_lead_creation_survives_automatic_template_failure(self):
         form = self._meta_form_with_auto_template("failure")
         payload = {

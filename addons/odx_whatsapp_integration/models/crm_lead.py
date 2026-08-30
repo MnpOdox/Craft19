@@ -63,6 +63,11 @@ class CrmLead(models.Model):
         self.ensure_one()
         if not self.id:
             raise ValidationError(_("Save the lead before opening WhatsApp."))
+        # Trusted webhook/cron automation runs with ``sudo`` while preserving
+        # the triggering user's uid.  It must not be mistaken for an
+        # interactive salesperson; normal RPC calls never have ``env.su``.
+        if self.env.su:
+            return True
         if not self.env.user.has_group("odx_whatsapp_integration.group_whatsapp_manager") and self.user_id != self.env.user:
             raise AccessError(_("Only the assigned salesperson can access this lead's WhatsApp messages."))
         return True
