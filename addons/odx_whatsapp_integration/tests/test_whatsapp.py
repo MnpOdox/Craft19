@@ -47,6 +47,20 @@ class TestWhatsApp(TransactionCase):
         self.assertEqual(self.env["odx.whatsapp.message"].with_user(self.sellers[0]).search_count([("id", "=", message.id)]), 0)
         self.assertEqual(self.env["odx.whatsapp.message"].with_user(self.sellers[1]).search_count([("id", "=", message.id)]), 1)
 
+    def test_lead_panel_recovers_from_stale_conversation_selection(self):
+        previous = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
+            self.account, "+918811111111", "Previous Lead"
+        )
+        current = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
+            self.account, "+918822222222", "Current Lead"
+        )
+
+        panel = current.lead_id.get_whatsapp_panel_data(previous.id)
+
+        self.assertEqual(panel["lead_id"], current.lead_id.id)
+        self.assertEqual(panel["selected_conversation_id"], current.id)
+        self.assertEqual(panel["chat"]["id"], current.id)
+
     def test_message_after_won_lead_creates_new_lead(self):
         phone = "+918787878787"
         first = self.env["odx.whatsapp.message"]._ingest_message(self.account, {

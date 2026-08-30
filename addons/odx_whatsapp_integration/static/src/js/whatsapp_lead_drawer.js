@@ -42,6 +42,8 @@ export class WhatsAppLeadDrawer extends Component {
         onWillUpdateProps((nextProps) => {
             if (nextProps.record.resId !== this.props.record.resId) {
                 this.close();
+                this.state.data = null;
+                this.resetComposer();
             }
         });
         onWillUnmount(() => {

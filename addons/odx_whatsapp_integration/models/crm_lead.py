@@ -71,7 +71,10 @@ class CrmLead(models.Model):
         if conversation_id:
             selected = conversations.filtered(lambda item: item.id == int(conversation_id))
             if not selected:
-                raise AccessError(_("This WhatsApp conversation is not available for this lead."))
+                # A form widget can briefly retain the previous lead's selection
+                # while Odoo switches records.  Reading the panel should recover
+                # to this lead's latest conversation; send methods remain strict.
+                selected = conversations[:1]
         elif conversations:
             selected = conversations[0]
         selected_account = self.env["odx.whatsapp.account"]
