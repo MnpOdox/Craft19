@@ -71,6 +71,51 @@ class TestWhatsApp(TransactionCase):
             "Bearer token",
         )
 
+    def test_same_owner_routes_existing_phone_to_newer_lead(self):
+        conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
+            self.account, "+919966554433", "Repeat Customer"
+        )
+        old_lead = conversation.lead_id
+        new_lead = self.env["crm.lead"].create({
+            "name": "New enquiry from repeat customer",
+            "contact_name": "Repeat Customer",
+            "phone": "+919966554433",
+            "company_id": self.env.company.id,
+            "team_id": self.team.id,
+            "user_id": old_lead.user_id.id,
+        })
+
+        routed = self.env["odx.whatsapp.conversation"].with_user(old_lead.user_id)._find_or_create_outbound(
+            self.account.with_user(old_lead.user_id), new_lead.with_user(old_lead.user_id)
+        )
+
+        self.assertEqual(routed, conversation.with_user(old_lead.user_id))
+        self.assertEqual(conversation.lead_id, new_lead)
+        self.assertEqual(self.env["odx.whatsapp.conversation"].sudo().search_count([
+            ("account_id", "=", self.account.id), ("partner_phone", "=", "919966554433"),
+        ]), 1)
+
+    def test_salesperson_cannot_take_other_owner_existing_phone(self):
+        conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
+            self.account, "+919955443322", "Private Customer"
+        )
+        other_lead = self.env["crm.lead"].create({
+            "name": "Other salesperson enquiry",
+            "contact_name": "Private Customer",
+            "phone": "+919955443322",
+            "company_id": self.env.company.id,
+            "team_id": self.team.id,
+            "user_id": self.sellers[1].id,
+        })
+
+        with self.assertRaises(AccessError):
+            self.env["odx.whatsapp.conversation"].with_user(self.sellers[1])._find_or_create_outbound(
+                self.account.with_user(self.sellers[1]), other_lead.with_user(self.sellers[1])
+            )
+
+        self.assertEqual(conversation.lead_id.user_id, self.sellers[0])
+        self.assertNotEqual(conversation.lead_id, other_lead)
+
     def test_lead_panel_recovers_from_stale_conversation_selection(self):
         previous = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
             self.account, "+918811111111", "Previous Lead"

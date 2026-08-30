@@ -564,14 +564,43 @@ class WhatsAppConversation(models.Model):
         phone = normalize_phone(lead.phone or lead.mobile, account.default_country_code)
         if not is_valid_whatsapp_phone(phone):
             raise ValidationError(_("The lead needs a valid phone or mobile number."))
-        conversation = self.search([("account_id", "=", account.id), ("partner_phone", "=", phone)], limit=1)
-        if conversation and conversation.lead_id != lead:
-            raise UserError(_("This phone number is already linked to another lead."))
+        # Search beyond the current owner's record rule so an existing private
+        # thread is detected before the unique database constraint is reached.
+        conversation = self.sudo().search([
+            ("account_id", "=", account.id), ("partner_phone", "=", phone),
+        ], limit=1)
+        if conversation and conversation.lead_id.id != lead.id:
+            old_lead = conversation.lead_id
+            same_owner = bool(old_lead.user_id and old_lead.user_id == lead.user_id == self.env.user)
+            can_route = (
+                self.env.su
+                or self.env.user.has_group("odx_whatsapp_integration.group_whatsapp_manager")
+                or same_owner
+            )
+            if not can_route:
+                raise AccessError(_(
+                    "This WhatsApp number belongs to a lead assigned to another salesperson. "
+                    "Ask a WhatsApp Manager to route the conversation to this lead."
+                ))
+            conversation.write({
+                "lead_id": lead.id,
+                "partner_name": lead.contact_name or lead.partner_name or lead.name,
+                "state": "open",
+            })
+            old_lead.sudo().message_post(body=_(
+                "WhatsApp conversation moved to newer lead %s.", lead.display_name,
+            ))
+            lead.sudo().message_post(body=_(
+                "Existing WhatsApp conversation moved from lead %s.", old_lead.display_name,
+            ))
         if not conversation:
             conversation = self.create({
                 "account_id": account.id, "lead_id": lead.id, "partner_phone": phone,
                 "partner_name": lead.contact_name or lead.partner_name or lead.name,
             })
+        # Drop the narrow routing sudo before enforcing the caller's access and
+        # returning the record to interactive code.
+        conversation = conversation.with_env(self.env)
         conversation._assert_access()
         return conversation
 
