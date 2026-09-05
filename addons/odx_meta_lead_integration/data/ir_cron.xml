@@ -18,4 +18,13 @@
         <field name="interval_type">minutes</field>
         <field name="active" eval="True"/>
     </record>
+    <record id="ir_cron_meta_status_retry" model="ir.cron">
+        <field name="name">Meta Leads: retry CRM status feedback</field>
+        <field name="model_id" ref="model_odx_meta_status_event"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_retry()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
 </odoo>

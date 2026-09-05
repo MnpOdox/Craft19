@@ -15,4 +15,5 @@
     </record>
     <record id="rule_meta_page_company" model="ir.rule"><field name="name">Meta pages: company</field><field name="model_id" ref="model_odx_meta_page"/><field name="domain_force">[('company_id', 'in', company_ids)]</field><field name="groups" eval="[(4, ref('sales_team.group_sale_salesman'))]"/></record>
     <record id="rule_meta_form_company" model="ir.rule"><field name="name">Meta forms: company</field><field name="model_id" ref="model_odx_meta_form"/><field name="domain_force">[('company_id', 'in', company_ids)]</field><field name="groups" eval="[(4, ref('sales_team.group_sale_salesman'))]"/></record>
+    <record id="rule_meta_status_event_company" model="ir.rule"><field name="name">Meta status events: company</field><field name="model_id" ref="model_odx_meta_status_event"/><field name="domain_force">[('company_id', 'in', company_ids)]</field><field name="groups" eval="[(4, ref('group_meta_lead_manager'))]"/></record>
 </odoo>

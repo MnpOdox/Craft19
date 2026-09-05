@@ -73,6 +73,37 @@ class MetaAccount(models.Model):
     )
     page_ids = fields.One2many("odx.meta.page", "account_id")
     last_reconcile_at = fields.Datetime(readonly=True, copy=False)
+    conversion_sync_enabled = fields.Boolean(
+        string="Send CRM Statuses to Meta",
+        tracking=True,
+        help="Send Meta Lead Ads lifecycle outcomes to the configured Dataset through the Conversions API.",
+    )
+    conversion_dataset_id = fields.Char(
+        string="Dataset / Pixel ID",
+        groups="base.group_system",
+        copy=False,
+    )
+    conversion_access_token = fields.Char(
+        string="Conversions API Token",
+        groups="base.group_system",
+        copy=False,
+    )
+    conversion_test_event_code = fields.Char(
+        string="Test Event Code",
+        groups="base.group_system",
+        copy=False,
+        help="Optional Events Manager test code. Remove it before using the integration in production.",
+    )
+
+    @api.constrains("conversion_sync_enabled", "conversion_dataset_id", "conversion_access_token")
+    def _check_conversion_configuration(self):
+        for account in self:
+            if account.conversion_sync_enabled and (
+                not account.conversion_dataset_id or not account.conversion_access_token
+            ):
+                raise ValidationError(_(
+                    "A Dataset / Pixel ID and Conversions API Token are required to send CRM statuses to Meta."
+                ))
 
     @api.depends("webhook_base_url")
     def _compute_webhook_callback_url(self):
@@ -385,3 +416,125 @@ class MetaImportEvent(models.Model):
                 count = event.retry_count + 1
                 event.write({"state": "failed", "retry_count": count, "error_message": str(exc)[:2000],
                              "next_retry_at": fields.Datetime.now() + timedelta(minutes=2 ** count)})
+
+
+class MetaStatusEvent(models.Model):
+    _name = "odx.meta.status.event"
+    _description = "Meta CRM Status Feedback Event"
+    _order = "create_date desc"
+
+    account_id = fields.Many2one("odx.meta.account", required=True, ondelete="cascade", index=True)
+    company_id = fields.Many2one(related="account_id.company_id", store=True, index=True)
+    lead_id = fields.Many2one("crm.lead", required=True, ondelete="cascade", index=True)
+    meta_lead_ref = fields.Char(string="Meta Lead ID", required=True, index=True)
+    event_name = fields.Char(required=True, index=True)
+    event_id = fields.Char(required=True, readonly=True, copy=False, index=True)
+    event_time = fields.Datetime(required=True, default=fields.Datetime.now, readonly=True)
+    state = fields.Selection([
+        ("pending", "Pending"),
+        ("processing", "Processing"),
+        ("done", "Done"),
+        ("failed", "Failed"),
+    ], required=True, default="pending", readonly=True, index=True)
+    retry_count = fields.Integer(readonly=True)
+    next_retry_at = fields.Datetime(readonly=True, index=True)
+    processed_at = fields.Datetime(readonly=True)
+    response = fields.Text(readonly=True, groups="base.group_system")
+    error_message = fields.Text(readonly=True)
+
+    _event_id_unique = models.Constraint(
+        "UNIQUE(event_id)", "A Meta CRM status event can only be recorded once."
+    )
+
+    def _payload(self):
+        self.ensure_one()
+        event_time = fields.Datetime.to_datetime(self.event_time).replace(tzinfo=timezone.utc)
+        event = {
+            "event_name": self.event_name,
+            "event_time": int(event_time.timestamp()),
+            "event_id": self.event_id,
+            "action_source": "system_generated",
+            "user_data": {"lead_id": self.meta_lead_ref},
+            "custom_data": {
+                "lead_event_source": "Odoo-CRM",
+                "event_source": "crm",
+            },
+        }
+        payload = {"data": [event]}
+        if self.account_id.conversion_test_event_code:
+            payload["test_event_code"] = self.account_id.conversion_test_event_code
+        return payload
+
+    def _update_lead_sync_state(self, state, error=False):
+        self.ensure_one()
+        values = {
+            "meta_status_sync_state": state,
+            "meta_status_sync_event_id": self.id,
+            "meta_status_sync_error": error or False,
+        }
+        if state == "done":
+            values.update({
+                "meta_status_synced_at": fields.Datetime.now(),
+                "meta_status_synced_name": self.event_name,
+            })
+        self.lead_id.with_context(odx_meta_status_sync_write=True).sudo().write(values)
+
+    def _send(self):
+        self.ensure_one()
+        account = self.account_id.sudo()
+        if not account.conversion_sync_enabled:
+            error = _("Meta CRM status synchronization is disabled for this account.")
+            self.write({"state": "failed", "error_message": error, "next_retry_at": False})
+            self._update_lead_sync_state("failed", error)
+            return False
+        self.state = "processing"
+        try:
+            result = account._graph_request(
+                account,
+                "POST",
+                "%s/events" % account.conversion_dataset_id,
+                access_token=account.conversion_access_token,
+                json=self._payload(),
+            )
+            self.write({
+                "state": "done",
+                "processed_at": fields.Datetime.now(),
+                "next_retry_at": False,
+                "error_message": False,
+                "response": json.dumps(result, ensure_ascii=False)[:4000],
+            })
+            self._update_lead_sync_state("done")
+            return True
+        except Exception as exc:  # closing a CRM lead must never be blocked by Meta
+            count = self.retry_count + 1
+            error = str(exc)[:2000]
+            self.write({
+                "state": "failed",
+                "retry_count": count,
+                "error_message": error,
+                "next_retry_at": (
+                    fields.Datetime.now() + timedelta(minutes=min(2 ** count, 60))
+                    if count < 5 else False
+                ),
+            })
+            self._update_lead_sync_state("failed", error)
+            _logger.warning("Meta CRM status feedback failed for lead %s: %s", self.lead_id.id, error)
+            return False
+
+    @api.model
+    def _cron_retry(self):
+        self.flush_model(["state", "retry_count", "next_retry_at"])
+        self.env.cr.execute("""
+            SELECT id
+              FROM odx_meta_status_event
+             WHERE state IN ('pending', 'failed')
+               AND retry_count < 5
+               AND (next_retry_at IS NULL OR next_retry_at <= %s)
+             ORDER BY create_date, id
+             FOR UPDATE SKIP LOCKED
+             LIMIT 100
+        """, [fields.Datetime.now()])
+        for event in self.sudo().browse([row[0] for row in self.env.cr.fetchall()]).exists():
+            with self.env.cr.savepoint():
+                event._send()
+        return True

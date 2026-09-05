@@ -1,4 +1,7 @@
+from unittest.mock import patch
+
 from odoo import fields
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests import tagged
 from odoo.tests.common import TransactionCase
 
@@ -52,3 +55,79 @@ class TestMetaLead(TransactionCase):
         self.assertIn("Ribbon Campaign", first.description)
         self.assertIn("Preferred Colour", first.description)
         self.assertIn("Blue", first.description)
+
+    def _conversion_lead(self, reference):
+        return self.form._import_payload({
+            "id": reference,
+            "created_time": "2026-08-28T03:43:50+0000",
+            "field_data": [{"name": "full_name", "values": ["Status Customer"]}],
+        })
+
+    def test_lost_lead_sends_conversion_status_to_meta(self):
+        self.account.write({
+            "conversion_dataset_id": "dataset-123",
+            "conversion_access_token": "conversion-token",
+            "conversion_sync_enabled": True,
+        })
+        lead = self._conversion_lead("lead-status-lost")
+        with patch.object(type(self.account), "_graph_request", return_value={"events_received": 1}) as request:
+            lead.action_set_lost()
+
+        event = self.env["odx.meta.status.event"].search([("lead_id", "=", lead.id)])
+        self.assertFalse(lead.active)
+        self.assertEqual(event.state, "done")
+        self.assertEqual(event.event_name, "Lost")
+        self.assertEqual(lead.meta_status_sync_state, "done")
+        args, kwargs = request.call_args
+        self.assertEqual(args[1:3], ("POST", "dataset-123/events"))
+        self.assertEqual(kwargs["access_token"], "conversion-token")
+        payload = kwargs["json"]
+        self.assertEqual(payload["data"][0]["user_data"]["lead_id"], "lead-status-lost")
+        self.assertEqual(payload["data"][0]["action_source"], "system_generated")
+        self.assertEqual(payload["data"][0]["custom_data"]["event_source"], "crm")
+
+    def test_meta_failure_does_not_block_closing_and_is_retryable(self):
+        self.account.write({
+            "conversion_dataset_id": "dataset-123",
+            "conversion_access_token": "conversion-token",
+            "conversion_sync_enabled": True,
+        })
+        lead = self._conversion_lead("lead-status-retry")
+        with patch.object(type(self.account), "_graph_request", side_effect=UserError("temporary outage")):
+            lead.action_set_lost()
+
+        event = self.env["odx.meta.status.event"].search([("lead_id", "=", lead.id)])
+        self.assertFalse(lead.active)
+        self.assertEqual(event.state, "failed")
+        self.assertEqual(event.retry_count, 1)
+        self.assertTrue(event.next_retry_at)
+        self.assertEqual(lead.meta_status_sync_state, "failed")
+        self.assertIn("temporary outage", lead.meta_status_sync_error)
+
+        event.next_retry_at = fields.Datetime.now()
+        with patch.object(type(self.account), "_graph_request", return_value={"events_received": 1}):
+            self.env["odx.meta.status.event"]._cron_retry()
+        self.assertEqual(event.state, "done")
+        self.assertEqual(event.retry_count, 1)
+
+    def test_won_lead_sends_won_status_once(self):
+        self.account.write({
+            "conversion_dataset_id": "dataset-123",
+            "conversion_access_token": "conversion-token",
+            "conversion_sync_enabled": True,
+        })
+        lead = self._conversion_lead("lead-status-won")
+        won_stage = self.env["crm.stage"].create({"name": "Won Feedback", "is_won": True})
+        with patch.object(type(self.account), "_graph_request", return_value={"events_received": 1}) as request:
+            lead.stage_id = won_stage
+            lead.write({"stage_id": won_stage.id})
+
+        events = self.env["odx.meta.status.event"].search([("lead_id", "=", lead.id)])
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events.event_name, "Won")
+        self.assertEqual(events.state, "done")
+        self.assertEqual(request.call_count, 1)
+
+    def test_conversion_configuration_requires_dataset_and_token(self):
+        with self.assertRaises(ValidationError):
+            self.account.write({"conversion_sync_enabled": True})

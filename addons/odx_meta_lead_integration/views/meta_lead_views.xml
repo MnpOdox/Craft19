@@ -16,6 +16,16 @@
                         <field name="webhook_base_url" required="1" placeholder="https://example.trycloudflare.com"/>
                         <field name="webhook_callback_url" readonly="1" widget="CopyClipboardChar"/>
                     </group>
+                    <group string="CRM Status Feedback (Conversions API)" groups="base.group_system">
+                        <group>
+                            <field name="conversion_sync_enabled"/>
+                            <field name="conversion_dataset_id" required="conversion_sync_enabled" invisible="not conversion_sync_enabled"/>
+                        </group>
+                        <group invisible="not conversion_sync_enabled">
+                            <field name="conversion_access_token" password="True" required="conversion_sync_enabled"/>
+                            <field name="conversion_test_event_code" placeholder="Optional; remove after testing"/>
+                        </group>
+                    </group>
                     <notebook><page string="Pages"><field name="page_ids"><list editable="bottom"><field name="name"/><field name="meta_page_ref"/><field name="page_access_token" password="True"/><field name="active"/></list></field></page></notebook>
                 </sheet><chatter/></form>
         </field>
@@ -35,7 +45,16 @@
         <field name="name">odx.meta.import.event.list</field><field name="model">odx.meta.import.event</field>
         <field name="arch" type="xml"><list create="0" delete="0"><field name="create_date"/><field name="account_id"/><field name="form_id"/><field name="meta_lead_ref"/><field name="event_type"/><field name="state" decoration-danger="state == 'failed'" decoration-success="state == 'done'"/><field name="lead_id"/><field name="error_message"/></list></field>
     </record>
+    <record id="view_meta_status_event_list" model="ir.ui.view">
+        <field name="name">odx.meta.status.event.list</field><field name="model">odx.meta.status.event</field>
+        <field name="arch" type="xml"><list create="0" delete="0"><field name="create_date"/><field name="lead_id"/><field name="meta_lead_ref"/><field name="event_name"/><field name="state" decoration-danger="state == 'failed'" decoration-success="state == 'done'"/><field name="retry_count"/><field name="processed_at"/><field name="error_message"/></list></field>
+    </record>
+    <record id="view_meta_status_event_form" model="ir.ui.view">
+        <field name="name">odx.meta.status.event.form</field><field name="model">odx.meta.status.event</field>
+        <field name="arch" type="xml"><form create="0" edit="0" delete="0"><sheet><group><group><field name="account_id"/><field name="lead_id"/><field name="meta_lead_ref"/><field name="event_name"/><field name="event_id"/></group><group><field name="state"/><field name="event_time"/><field name="processed_at"/><field name="retry_count"/><field name="next_retry_at"/></group></group><group><field name="error_message"/><field name="response" groups="base.group_system"/></group></sheet></form></field>
+    </record>
     <record id="action_meta_account" model="ir.actions.act_window"><field name="name">Meta Accounts</field><field name="res_model">odx.meta.account</field><field name="view_mode">list,form</field></record>
     <record id="action_meta_form" model="ir.actions.act_window"><field name="name">Lead Forms</field><field name="res_model">odx.meta.form</field><field name="view_mode">list,form</field></record>
     <record id="action_meta_event" model="ir.actions.act_window"><field name="name">Import Events</field><field name="res_model">odx.meta.import.event</field><field name="view_mode">list,form</field></record>
+    <record id="action_meta_status_event" model="ir.actions.act_window"><field name="name">Status Feedback</field><field name="res_model">odx.meta.status.event</field><field name="view_mode">list,form</field></record>
 </odoo>
