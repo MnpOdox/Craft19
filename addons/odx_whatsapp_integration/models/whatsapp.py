@@ -1078,6 +1078,7 @@ class WhatsAppMessage(models.Model):
                     values["body"] = "%s\n[Media download failed: %s]" % (values.get("body") or "", str(exc)[:300])
         message = self.sudo().create(values)
         now = fields.Datetime.now()
+        conversation.lead_id._handle_whatsapp_automation_reply(values["message_at"])
         conversation.sudo().write({
             "last_inbound_at": now, "last_message_at": now,
             "unread_count": conversation.unread_count + 1,

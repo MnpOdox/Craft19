@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import timedelta
 
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
@@ -40,6 +41,232 @@ class CrmLead(models.Model):
     whatsapp_auto_template_error = fields.Text(
         string="Automatic WhatsApp Error", readonly=True, copy=False,
     )
+    whatsapp_automation_state = fields.Selection([
+        ("running", "Running"),
+        ("replied", "Customer Replied"),
+        ("auto_lost", "Closed - No Reply"),
+        ("stopped", "Stopped"),
+        ("failed", "Failed"),
+    ], string="WhatsApp Follow-Up", readonly=True, copy=False, index=True)
+    whatsapp_automation_started_at = fields.Datetime(readonly=True, copy=False)
+    whatsapp_automation_next_step_id = fields.Many2one(
+        "odx.meta.whatsapp.followup.step", string="Next Follow-Up", readonly=True, copy=False,
+        ondelete="restrict",
+    )
+    whatsapp_automation_next_run_at = fields.Datetime(readonly=True, copy=False, index=True)
+    whatsapp_automation_last_sent_at = fields.Datetime(readonly=True, copy=False)
+    whatsapp_automation_last_message_id = fields.Many2one(
+        "odx.whatsapp.message", string="Last Automated Message", readonly=True, copy=False,
+    )
+    whatsapp_automation_retry_count = fields.Integer(readonly=True, copy=False)
+    whatsapp_automation_error = fields.Text(readonly=True, copy=False)
+    whatsapp_automation_completion_reason = fields.Selection([
+        ("customer_reply", "Customer replied"),
+        ("customer_reply_after_close", "Customer replied after automatic close"),
+        ("no_reply", "No reply before deadline"),
+        ("won", "Lead was won"),
+        ("manual_lost", "Lead was manually marked lost"),
+        ("configuration_changed", "Automation configuration changed"),
+        ("send_failed", "Message could not be sent"),
+    ], string="Automation Completion Reason", readonly=True, copy=False)
+    whatsapp_automation_auto_closed = fields.Boolean(readonly=True, copy=False)
+
+    def write(self, vals):
+        result = super().write(vals)
+        if self.env.context.get("odx_whatsapp_automation_write"):
+            return result
+        running = self.filtered(lambda lead: lead.whatsapp_automation_state == "running")
+        if not running:
+            return result
+        if vals.get("active") is False:
+            running._finish_whatsapp_automation("stopped", "manual_lost")
+        elif "stage_id" in vals:
+            running.filtered("stage_id.is_won")._finish_whatsapp_automation("stopped", "won")
+        return result
+
+    def _finish_whatsapp_automation(self, state, reason, error=False):
+        if not self:
+            return
+        self.with_context(odx_whatsapp_automation_write=True).sudo().write({
+            "whatsapp_automation_state": state,
+            "whatsapp_automation_next_step_id": False,
+            "whatsapp_automation_next_run_at": False,
+            "whatsapp_automation_completion_reason": reason,
+            "whatsapp_automation_error": error or False,
+        })
+
+    def _has_whatsapp_automation_reply(self):
+        self.ensure_one()
+        if not self.whatsapp_automation_started_at:
+            return False
+        return bool(self.env["odx.whatsapp.message"].sudo().search_count([
+            ("conversation_id.lead_id", "=", self.id),
+            ("direction", "=", "inbound"),
+            ("message_at", ">=", self.whatsapp_automation_started_at),
+        ]))
+
+    def _handle_whatsapp_automation_reply(self, message_at):
+        """Stop a running sequence and restore only leads it closed itself."""
+        for lead in self.sudo():
+            if lead.whatsapp_automation_state not in ("running", "auto_lost"):
+                continue
+            if lead.whatsapp_automation_started_at and message_at < lead.whatsapp_automation_started_at:
+                continue
+            restored = lead.whatsapp_automation_state == "auto_lost" and lead.whatsapp_automation_auto_closed
+            if restored:
+                lead.with_context(odx_whatsapp_automation_write=True).action_restore()
+            lead._finish_whatsapp_automation(
+                "replied",
+                "customer_reply_after_close" if restored else "customer_reply",
+            )
+            lead.with_context(odx_whatsapp_automation_write=True).write({
+                "whatsapp_automation_auto_closed": False,
+            })
+            lead.message_post(body=(
+                _("Lead restored because the customer replied after the automatic no-response closure.")
+                if restored else _("WhatsApp follow-up automation stopped because the customer replied.")
+            ))
+
+    def _next_whatsapp_followup_step(self, current_step):
+        self.ensure_one()
+        steps = self.meta_form_id.whatsapp_followup_step_ids.sorted(
+            key=lambda item: (item.sequence, item.id)
+        )
+        current_index = list(steps).index(current_step)
+        return steps[current_index + 1] if current_index + 1 < len(steps) else self.env[current_step._name]
+
+    def _schedule_whatsapp_automation_retry(self, error):
+        self.ensure_one()
+        retry_count = self.whatsapp_automation_retry_count + 1
+        if retry_count >= 5:
+            self._finish_whatsapp_automation("failed", "send_failed", error)
+            self.with_context(odx_whatsapp_automation_write=True).write({
+                "whatsapp_automation_retry_count": retry_count,
+            })
+            next_run = False
+        else:
+            next_run = fields.Datetime.now() + timedelta(minutes=min(5 * (2 ** (retry_count - 1)), 60))
+            self.with_context(odx_whatsapp_automation_write=True).write({
+                "whatsapp_automation_retry_count": retry_count,
+                "whatsapp_automation_next_run_at": next_run,
+                "whatsapp_automation_error": error,
+            })
+        self.with_context(odx_whatsapp_automation_write=True).write({
+            "whatsapp_auto_template_state": "failed",
+            "whatsapp_auto_template_error": error,
+        })
+        self.meta_form_id.sudo().write({"whatsapp_auto_last_error": error})
+        self.message_post(body=_(
+            "Automatic WhatsApp follow-up failed (attempt %(attempt)s of 5): %(error)s",
+            attempt=retry_count, error=error,
+        ))
+        return next_run
+
+    def _process_whatsapp_followup_automation(self):
+        for lead in self.sudo():
+            if lead.whatsapp_automation_state != "running":
+                continue
+            if (
+                lead.whatsapp_automation_next_run_at
+                and lead.whatsapp_automation_next_run_at > fields.Datetime.now()
+            ):
+                continue
+            if not lead.active:
+                lead._finish_whatsapp_automation("stopped", "manual_lost")
+                continue
+            if lead.stage_id.is_won:
+                lead._finish_whatsapp_automation("stopped", "won")
+                continue
+            if lead._has_whatsapp_automation_reply():
+                lead._finish_whatsapp_automation("replied", "customer_reply")
+                continue
+            form = lead.meta_form_id
+            if not form or not form.whatsapp_auto_send_enabled or not form.whatsapp_auto_account_id:
+                lead._finish_whatsapp_automation("stopped", "configuration_changed")
+                continue
+            step = lead.whatsapp_automation_next_step_id
+            if step and step.form_id != form:
+                lead._finish_whatsapp_automation("stopped", "configuration_changed")
+                continue
+            if not step:
+                lost_reason = self.env["crm.lost.reason"].sudo().with_context(active_test=False).search([
+                    ("name", "=", "No WhatsApp Response"),
+                ], limit=1)
+                if not lost_reason:
+                    lost_reason = self.env["crm.lost.reason"].sudo().create({
+                        "name": "No WhatsApp Response",
+                    })
+                lead.with_context(
+                    odx_whatsapp_automation_write=True,
+                ).action_set_lost(lost_reason_id=lost_reason.id)
+                lead.whatsapp_conversation_ids.sudo().write({"state": "closed"})
+                lead.with_context(odx_whatsapp_automation_write=True).write({
+                    "whatsapp_automation_state": "auto_lost",
+                    "whatsapp_automation_next_run_at": False,
+                    "whatsapp_automation_completion_reason": "no_reply",
+                    "whatsapp_automation_auto_closed": True,
+                    "whatsapp_automation_error": False,
+                })
+                lead.message_post(body=_(
+                    "Lead automatically marked Lost because no WhatsApp reply was received before the deadline."
+                ))
+                continue
+            try:
+                account = form.whatsapp_auto_account_id.sudo()
+                template = step.template_id.sudo()
+                if not account.active or not template.active or template.status != "approved":
+                    raise ValidationError(_("The configured WhatsApp account or template is no longer available."))
+                parameters = step._render_parameters(lead)
+                if len(parameters) != step._expected_parameter_count():
+                    raise ValidationError(_("The configured template-variable values no longer match the template."))
+                conversation = self.env["odx.whatsapp.conversation"].sudo()._find_or_create_outbound(account, lead)
+                message = conversation.sudo().send_template(template, parameters)
+                now = fields.Datetime.now()
+                next_step = lead._next_whatsapp_followup_step(step)
+                next_run = now + timedelta(
+                    hours=next_step.delay_hours if next_step else form.whatsapp_auto_close_hours
+                )
+                lead.with_context(odx_whatsapp_automation_write=True).write({
+                    "whatsapp_automation_next_step_id": next_step.id,
+                    "whatsapp_automation_next_run_at": next_run,
+                    "whatsapp_automation_last_sent_at": now,
+                    "whatsapp_automation_last_message_id": message.id,
+                    "whatsapp_automation_retry_count": 0,
+                    "whatsapp_automation_error": False,
+                    "whatsapp_auto_template_state": "sent",
+                    "whatsapp_auto_template_message_id": message.id,
+                    "whatsapp_auto_template_error": False,
+                })
+                form.sudo().write({
+                    "whatsapp_auto_last_sent_at": now,
+                    "whatsapp_auto_last_error": False,
+                })
+                lead.message_post(body=_(
+                    "WhatsApp follow-up template %(template)s was sent automatically.",
+                    template=template.display_name,
+                ))
+            except Exception as exc:  # lead creation and other due leads must continue
+                error = str(exc)[:2000]
+                lead._schedule_whatsapp_automation_retry(error)
+
+    @api.model
+    def _cron_process_whatsapp_followup_automation(self):
+        now = fields.Datetime.now()
+        self.env.cr.execute("""
+            SELECT id
+              FROM crm_lead
+             WHERE whatsapp_automation_state = 'running'
+               AND whatsapp_automation_next_run_at IS NOT NULL
+               AND whatsapp_automation_next_run_at <= %s
+             ORDER BY whatsapp_automation_next_run_at, id
+             FOR UPDATE SKIP LOCKED
+             LIMIT 100
+        """, [now])
+        lead_ids = [row[0] for row in self.env.cr.fetchall()]
+        for lead in self.sudo().with_context(active_test=False).browse(lead_ids).exists():
+            with self.env.cr.savepoint():
+                lead._process_whatsapp_followup_automation()
+        return True
 
     @api.depends("phone", "whatsapp_conversation_ids.last_message_at")
     def _compute_whatsapp(self):

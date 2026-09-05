@@ -10,4 +10,13 @@
         <field name="state">code</field><field name="code">model._cron_retry()</field>
         <field name="interval_number">5</field><field name="interval_type">minutes</field><field name="active" eval="True"/>
     </record>
+    <record id="ir_cron_meta_whatsapp_followup" model="ir.cron">
+        <field name="name">Meta Leads: process WhatsApp follow-ups</field>
+        <field name="model_id" ref="crm.model_crm_lead"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_process_whatsapp_followup_automation()</field>
+        <field name="interval_number">5</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
 </odoo>

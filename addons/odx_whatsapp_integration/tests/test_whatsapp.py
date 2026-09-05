@@ -158,11 +158,17 @@ class TestWhatsApp(TransactionCase):
             "page_id": page.id,
             "meta_form_ref": "form-%s" % suffix,
             "team_id": self.team.id,
-            "whatsapp_auto_send_enabled": True,
+            "whatsapp_auto_send_enabled": False,
             "whatsapp_auto_account_id": self.account.id,
-            "whatsapp_auto_template_id": template.id,
-            "whatsapp_auto_template_parameters": "{{contact_name}}",
         })
+        self.env["odx.meta.whatsapp.followup.step"].create({
+            "form_id": form.id,
+            "sequence": 10,
+            "template_id": template.id,
+            "delay_hours": 0,
+            "template_parameters": "{{contact_name}}",
+        })
+        form.whatsapp_auto_send_enabled = True
         phone_field = self.env["ir.model.fields"]._get("crm.lead", "phone")
         self.env["odx.meta.field.mapping"].create({
             "form_id": form.id,
@@ -206,6 +212,7 @@ class TestWhatsApp(TransactionCase):
             "company_id": self.env.company.id,
             "team_id": self.team.id,
             "user_id": self.sellers[0].id,
+            "meta_form_id": form.id,
         })
 
         with patch.object(
@@ -236,6 +243,179 @@ class TestWhatsApp(TransactionCase):
         self.assertEqual(lead.whatsapp_auto_template_state, "failed")
         self.assertIn("valid phone", lead.whatsapp_auto_template_error)
         self.assertEqual(form.whatsapp_auto_last_error, lead.whatsapp_auto_template_error)
+
+    def test_meta_followup_sequence_uses_delay_after_previous_send(self):
+        form = self._meta_form_with_auto_template("sequence")
+        second_template = self.env["odx.whatsapp.template"].create({
+            "account_id": self.account.id,
+            "meta_template_id": "auto-template-sequence-second",
+            "name": "reminder_sequence",
+            "language": "en_US",
+            "status": "approved",
+            "category": "marketing",
+            "components_json": json.dumps([{
+                "type": "BODY", "text": "Hello {{1}}, are you still interested?",
+            }]),
+        })
+        second_step = self.env["odx.meta.whatsapp.followup.step"].create({
+            "form_id": form.id,
+            "sequence": 20,
+            "template_id": second_template.id,
+            "delay_hours": 4,
+            "template_parameters": "{{contact_name}}",
+        })
+        payload = {
+            "id": "meta-auto-lead-sequence",
+            "field_data": [
+                {"name": "full_name", "values": ["Sequence Customer"]},
+                {"name": "phone_number", "values": ["+919811223401"]},
+            ],
+        }
+        with patch.object(type(self.account), "_api", side_effect=[
+            {"messages": [{"id": "wamid.sequence-first"}]},
+            {"messages": [{"id": "wamid.sequence-second"}]},
+        ]) as api_call:
+            lead = form._import_payload(payload)
+            first_sent_at = lead.whatsapp_automation_last_sent_at
+            self.assertEqual(lead.whatsapp_automation_next_step_id, second_step)
+            self.assertEqual(
+                lead.whatsapp_automation_next_run_at,
+                first_sent_at + timedelta(hours=4),
+            )
+            lead.with_context(odx_whatsapp_automation_write=True).whatsapp_automation_next_run_at = fields.Datetime.now()
+            lead._process_whatsapp_followup_automation()
+
+        self.assertEqual(api_call.call_count, 2)
+        self.assertFalse(lead.whatsapp_automation_next_step_id)
+        self.assertEqual(
+            lead.whatsapp_automation_next_run_at,
+            lead.whatsapp_automation_last_sent_at + timedelta(hours=form.whatsapp_auto_close_hours),
+        )
+        self.assertEqual(lead.whatsapp_automation_last_message_id.meta_message_id, "wamid.sequence-second")
+
+    def test_inbound_reply_stops_pending_meta_followups(self):
+        form = self._meta_form_with_auto_template("reply")
+        payload = {
+            "id": "meta-auto-lead-reply",
+            "field_data": [
+                {"name": "full_name", "values": ["Reply Customer"]},
+                {"name": "phone_number", "values": ["+919811223402"]},
+            ],
+        }
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.reply-first"}],
+        }):
+            lead = form._import_payload(payload)
+
+        self.env["odx.whatsapp.message"]._ingest_message(self.account, {
+            "id": "wamid.customer-reply", "from": "+919811223402",
+            "type": "text", "text": {"body": "Yes, I am interested"},
+        }, "Reply Customer")
+
+        self.assertEqual(lead.whatsapp_automation_state, "replied")
+        self.assertEqual(lead.whatsapp_automation_completion_reason, "customer_reply")
+        self.assertFalse(lead.whatsapp_automation_next_run_at)
+
+    def test_no_reply_marks_lost_and_late_reply_restores_same_lead(self):
+        form = self._meta_form_with_auto_template("late_reply")
+        payload = {
+            "id": "meta-auto-lead-late-reply",
+            "field_data": [
+                {"name": "full_name", "values": ["Late Reply Customer"]},
+                {"name": "phone_number", "values": ["+919811223403"]},
+            ],
+        }
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.late-reply-first"}],
+        }):
+            lead = form._import_payload(payload)
+        conversation = lead.whatsapp_conversation_ids
+        lead.with_context(odx_whatsapp_automation_write=True).write({
+            "whatsapp_automation_next_step_id": False,
+            "whatsapp_automation_next_run_at": fields.Datetime.now(),
+        })
+        lead._process_whatsapp_followup_automation()
+
+        self.assertFalse(lead.active)
+        self.assertEqual(lead.whatsapp_automation_state, "auto_lost")
+        self.assertEqual(lead.lost_reason_id.name, "No WhatsApp Response")
+        self.assertEqual(conversation.state, "closed")
+
+        reply = self.env["odx.whatsapp.message"]._ingest_message(self.account, {
+            "id": "wamid.reply-after-close", "from": "+919811223403",
+            "type": "text", "text": {"body": "Sorry, I just saw this"},
+        }, "Late Reply Customer")
+
+        self.assertEqual(reply.conversation_id.lead_id, lead)
+        self.assertTrue(lead.active)
+        self.assertEqual(lead.whatsapp_automation_state, "replied")
+        self.assertEqual(lead.whatsapp_automation_completion_reason, "customer_reply_after_close")
+        self.assertEqual(conversation.state, "open")
+
+    def test_manually_lost_meta_lead_is_not_restored_by_reply(self):
+        form = self._meta_form_with_auto_template("manual_lost")
+        payload = {
+            "id": "meta-auto-lead-manual-lost",
+            "field_data": [
+                {"name": "full_name", "values": ["Manual Lost Customer"]},
+                {"name": "phone_number", "values": ["+919811223404"]},
+            ],
+        }
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.manual-lost-first"}],
+        }):
+            lead = form._import_payload(payload)
+        lead.action_set_lost()
+        self.assertEqual(lead.whatsapp_automation_state, "stopped")
+
+        self.env["odx.whatsapp.message"]._ingest_message(self.account, {
+            "id": "wamid.reply-manual-lost", "from": "+919811223404",
+            "type": "text", "text": {"body": "I am replying"},
+        }, "Manual Lost Customer")
+
+        self.assertFalse(lead.active)
+        self.assertEqual(lead.whatsapp_automation_completion_reason, "manual_lost")
+
+    def test_won_meta_lead_stops_pending_followups(self):
+        form = self._meta_form_with_auto_template("won_stop")
+        payload = {
+            "id": "meta-auto-lead-won-stop",
+            "field_data": [
+                {"name": "full_name", "values": ["Won Customer"]},
+                {"name": "phone_number", "values": ["+919811223405"]},
+            ],
+        }
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.won-stop-first"}],
+        }):
+            lead = form._import_payload(payload)
+        won_stage = self.env["crm.stage"].create({"name": "Automation Won", "is_won": True})
+
+        lead.stage_id = won_stage
+
+        self.assertEqual(lead.whatsapp_automation_state, "stopped")
+        self.assertEqual(lead.whatsapp_automation_completion_reason, "won")
+        self.assertFalse(lead.whatsapp_automation_next_run_at)
+
+    def test_meta_followup_failure_retries_are_bounded(self):
+        form = self._meta_form_with_auto_template("bounded_retry")
+        payload = {
+            "id": "meta-auto-lead-bounded-retry",
+            "field_data": [
+                {"name": "full_name", "values": ["Invalid Phone"]},
+                {"name": "phone_number", "values": ["bad"]},
+            ],
+        }
+        lead = form._import_payload(payload)
+        self.assertEqual(lead.whatsapp_automation_retry_count, 1)
+        for _attempt in range(4):
+            lead.with_context(odx_whatsapp_automation_write=True).whatsapp_automation_next_run_at = fields.Datetime.now()
+            lead._process_whatsapp_followup_automation()
+
+        self.assertEqual(lead.whatsapp_automation_state, "failed")
+        self.assertEqual(lead.whatsapp_automation_retry_count, 5)
+        self.assertEqual(lead.whatsapp_automation_completion_reason, "send_failed")
+        self.assertFalse(lead.whatsapp_automation_next_run_at)
 
     def test_message_after_won_lead_creates_new_lead(self):
         phone = "+918787878787"
