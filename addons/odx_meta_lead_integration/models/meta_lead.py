@@ -255,6 +255,7 @@ class MetaForm(models.Model):
             "full_name": "contact_name",
             "email": "email_from",
             "phone_number": "phone",
+            "state": "meta_location",
         }
         field_records = self.env["ir.model.fields"].sudo().search([
             ("model", "=", "crm.lead"), ("name", "in", list(targets.values())),

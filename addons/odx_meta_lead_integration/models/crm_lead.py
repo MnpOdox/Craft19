@@ -13,6 +13,11 @@ class CrmLead(models.Model):
     meta_campaign_name = fields.Char(copy=False, readonly=True)
     meta_adset_name = fields.Char(copy=False, readonly=True)
     meta_ad_name = fields.Char(copy=False, readonly=True)
+    meta_location = fields.Char(
+        string="Enquiry State / Location",
+        copy=False,
+        help="State or location submitted through the Meta Instant Form.",
+    )
     meta_status_sync_state = fields.Selection([
         ("pending", "Pending"),
         ("done", "Sent"),

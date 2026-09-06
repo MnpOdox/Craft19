@@ -156,7 +156,7 @@ class TestMetaLead(TransactionCase):
         self.assertEqual(form.configuration_state, "needs_configuration")
         self.assertFalse(form.team_id)
         self.assertEqual(set(form.mapping_ids.mapped("meta_field")), {
-            "full_name", "email", "phone_number",
+            "full_name", "email", "phone_number", "state",
         })
         self.assertEqual(event.form_id, form)
         self.assertEqual(event.state, "pending")
@@ -168,6 +168,7 @@ class TestMetaLead(TransactionCase):
             "field_data": [
                 {"name": "full_name", "values": ["Waiting Customer"]},
                 {"name": "phone_number", "values": ["+919999999999"]},
+                {"name": "state", "values": ["Uttar Pradesh"]},
             ],
         }
         with patch.object(type(form), "_graph_request", return_value=lead_payload):
@@ -178,3 +179,4 @@ class TestMetaLead(TransactionCase):
         self.assertEqual(event.state, "done")
         self.assertEqual(lead.contact_name, "Waiting Customer")
         self.assertEqual(lead.phone, "+919999999999")
+        self.assertEqual(lead.meta_location, "Uttar Pradesh")
