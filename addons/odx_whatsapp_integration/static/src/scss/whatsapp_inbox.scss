@@ -160,6 +160,21 @@
 .o_wa_template_label { display: block; margin-bottom: 5px; color: #167a6d; font-size: 9px; font-weight: 750; text-transform: uppercase; }
 .o_wa_message_error { margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(190,65,73,.2); color: #b63843; font-size: 9px; }
 .o_wa_media_image, .o_wa_media_video { display: block; width: 360px; max-width: 100%; max-height: 330px; margin-bottom: 6px; border-radius: 6px; object-fit: cover; }
+.o_wa_media_image { cursor: zoom-in; }
+
+.o_wa_image_lightbox {
+    position: fixed; inset: 0; z-index: 1300; display: flex; flex-direction: column;
+    padding: 16px; color: #fff; background: rgba(9, 16, 18, .94); backdrop-filter: blur(3px);
+    header { min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 0 4px 12px;
+        strong { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        a, button { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; padding: 0 13px; border: 0; border-radius: 8px; color: #fff; background: rgba(255,255,255,.13); text-decoration: none; }
+        a:hover, button:hover { background: rgba(255,255,255,.22); }
+        button { width: 38px; justify-content: center; padding: 0; font-size: 18px; }
+    }
+}
+.o_wa_image_lightbox_body { min-height: 0; flex: 1; display: flex; align-items: center; justify-content: center; cursor: zoom-out;
+    img { max-width: 100%; max-height: 100%; border-radius: 5px; object-fit: contain; cursor: default; box-shadow: 0 10px 45px rgba(0,0,0,.42); }
+}
 .o_wa_media_audio { display: block; width: 330px; max-width: 100%; margin-bottom: 5px; }
 .o_wa_document { min-width: 240px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; padding: 11px; border-radius: 6px; color: #315c62; background: rgba(255,255,255,.6); text-decoration: none; > i:first-child { font-size: 21px; } span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
 .o_wa_no_messages { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #76858a; text-align: center; i { color: rgba(18,140,126,.35); font-size: 55px; } h3 { margin: 12px 0 3px; color: #526168; } p { margin: 0; } }

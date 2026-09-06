@@ -55,16 +55,45 @@ export class WhatsAppInbox extends Component {
             voicePreview: "",
             voiceMime: "",
             voiceExtension: "",
+            previewImageUrl: "",
+            previewImageDownloadUrl: "",
+            previewImageName: "",
         });
         onWillStart(() => this.loadInbox());
         onMounted(() => {
             this.pollTimer = setInterval(() => this.refreshQuietly(), 8000);
+            window.addEventListener("keydown", this.onWindowKeydown);
         });
         onWillUnmount(() => {
+            window.removeEventListener("keydown", this.onWindowKeydown);
             clearInterval(this.pollTimer);
             this.clearMedia(false);
             this.discardRecording();
         });
+    }
+
+    onWindowKeydown = (event) => {
+        if (event.key === "Escape" && this.state.previewImageUrl) {
+            this.closeImagePreview();
+        }
+    };
+
+    openImagePreview(message) {
+        this.state.previewImageUrl = this.mediaUrl(message);
+        this.state.previewImageDownloadUrl = this.mediaUrl(message, true);
+        this.state.previewImageName = message.attachment_name || "WhatsApp image";
+    }
+
+    closeImagePreview() {
+        this.state.previewImageUrl = "";
+        this.state.previewImageDownloadUrl = "";
+        this.state.previewImageName = "";
+    }
+
+    onImagePreviewBackdrop(event) {
+        if (event.target === event.currentTarget) {
+            this.closeImagePreview();
+        }
     }
 
     async loadInbox(keepSelection = true) {
@@ -641,9 +670,9 @@ export class WhatsAppInbox extends Component {
         return { pending: "Queued", sent: "Sent", delivered: "Delivered", read: "Read", failed: "Failed" }[state] || state;
     }
 
-    mediaUrl(message) {
+    mediaUrl(message, download = false) {
         const filename = encodeURIComponent(message.attachment_name || "whatsapp-media");
-        return `/web/content/odx.whatsapp.message/${message.id}/attachment/${filename}`;
+        return `/web/content/odx.whatsapp.message/${message.id}/attachment/${filename}?download=${download ? 1 : 0}`;
     }
 
     notifyError(error) {

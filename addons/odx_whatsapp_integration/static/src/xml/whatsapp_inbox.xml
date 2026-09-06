@@ -60,7 +60,7 @@
                         <div t-foreach="state.chat.messages" t-as="message" t-key="message.id" class="o_wa_message_row" t-att-class="message.direction">
                             <article class="o_wa_bubble" t-att-class="message.state === 'failed' ? 'o_failed' : ''">
                                 <span class="o_wa_template_label" t-if="message.type === 'template'"><i class="fa fa-file-text-o"/> Template · <t t-esc="message.template_name"/></span>
-                                <img t-if="message.has_attachment &amp;&amp; message.type === 'image'" class="o_wa_media_image" t-att-src="mediaUrl(message)" t-att-alt="message.attachment_name"/>
+                                <img t-if="message.has_attachment &amp;&amp; message.type === 'image'" class="o_wa_media_image" t-att-src="mediaUrl(message)" t-att-alt="message.attachment_name" role="button" title="Open image preview" t-on-click="() => this.openImagePreview(message)"/>
                                 <video t-if="message.has_attachment &amp;&amp; message.type === 'video'" class="o_wa_media_video" controls="controls" t-att-src="mediaUrl(message)"/>
                                 <audio t-if="message.has_attachment &amp;&amp; message.type === 'audio'" class="o_wa_media_audio" controls="controls" t-att-src="mediaUrl(message)"/>
                                 <a t-if="message.has_attachment &amp;&amp; message.type === 'document'" class="o_wa_document" t-att-href="mediaUrl(message)" target="_blank"><i class="fa fa-file-o"/><span t-esc="message.attachment_name || 'Document'"/><i class="fa fa-download"/></a>
@@ -152,6 +152,16 @@
                 </t>
                 <div class="o_wa_welcome" t-else=""><div><i class="fa fa-whatsapp"/><h2>Your WhatsApp workspace</h2><p>Select a conversation to view its complete private history and reply.</p></div></div>
             </main>
+            <div t-if="state.previewImageUrl" class="o_wa_image_lightbox" t-on-click="onImagePreviewBackdrop">
+                <header>
+                    <strong t-esc="state.previewImageName"/>
+                    <a t-att-href="state.previewImageDownloadUrl" title="Download image"><i class="fa fa-download"/> Download</a>
+                    <button t-on-click="closeImagePreview" title="Close preview"><i class="fa fa-times"/></button>
+                </header>
+                <div class="o_wa_image_lightbox_body" t-on-click="onImagePreviewBackdrop">
+                    <img t-att-src="state.previewImageUrl" t-att-alt="state.previewImageName"/>
+                </div>
+            </div>
         </div>
     </t>
 </templates>

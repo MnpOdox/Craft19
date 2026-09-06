@@ -38,6 +38,7 @@ export class WhatsAppLeadDrawer extends Component {
             preparingMedia: false,
             question: "", buttons: [""],
             recording: false, recordingPaused: false, recordingSeconds: 0, voiceBase64: "", voicePreview: "",
+            previewImageUrl: "", previewImageDownloadUrl: "", previewImageName: "",
         });
         this.emojis = EMOJIS;
         onWillStart(() => this.state.data = null);
@@ -73,6 +74,7 @@ export class WhatsAppLeadDrawer extends Component {
     }
 
     close() {
+        this.closeImagePreview();
         this.state.open = false;
         this.stopPolling();
     }
@@ -83,8 +85,26 @@ export class WhatsAppLeadDrawer extends Component {
     }
 
     onWindowKeydown = (event) => {
-        if (event.key === "Escape" && this.state.open) this.close();
+        if (event.key !== "Escape") return;
+        if (this.state.previewImageUrl) this.closeImagePreview();
+        else if (this.state.open) this.close();
     };
+
+    openImagePreview(message) {
+        this.state.previewImageUrl = this.mediaUrl(message);
+        this.state.previewImageDownloadUrl = this.mediaUrl(message, true);
+        this.state.previewImageName = message.attachment_name || "WhatsApp image";
+    }
+
+    closeImagePreview() {
+        this.state.previewImageUrl = "";
+        this.state.previewImageDownloadUrl = "";
+        this.state.previewImageName = "";
+    }
+
+    onImagePreviewBackdrop(event) {
+        if (event.target === event.currentTarget) this.closeImagePreview();
+    }
 
     async load(quiet = false, markRead = false, conversationId = false, accountId = false) {
         if (!this.state.open || this.state.loading || this.state.sending) return;
@@ -444,7 +464,7 @@ export class WhatsAppLeadDrawer extends Component {
     onTextKeydown(event) { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); this.sendText(); } }
 
     openInbox() { this.action.doAction("odx_whatsapp_integration.action_whatsapp_inbox"); }
-    mediaUrl(message) { return `/web/content/odx.whatsapp.message/${message.id}/attachment/${encodeURIComponent(message.attachment_name || "media")}?download=0`;
+    mediaUrl(message, download = false) { return `/web/content/odx.whatsapp.message/${message.id}/attachment/${encodeURIComponent(message.attachment_name || "media")}?download=${download ? 1 : 0}`;
     }
     formatTime(value) { if (!value) return ""; return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(value.replace(" ", "T") + "Z")); }
     formatDate(value) { if (!value) return ""; return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value.replace(" ", "T") + "Z")); }
