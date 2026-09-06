@@ -10,6 +10,12 @@ Subscribe the Page to the `leadgen` webhook field. The callback validates `X-Hub
 
 When a webhook references a new Instant Form, Odoo automatically creates that form as **Needs Configuration**, adds standard name/email/phone/state mappings, and retains its submissions. Meta's `state` answer is stored in the lead's **Enquiry State / Location** field. A manager selects the sales team, reviews mappings and automation, then clicks **Confirm Configuration & Import Waiting Leads**. Odoo immediately processes the waiting webhook events; reconciliation recovers any additional submissions.
 
+## Ad-level routing
+
+Enable **Route Leads by Meta Ad** on a lead form when the same Instant Form is reused by different advertisements. Odoo identifies every submission by Meta `ad_id`, stores the campaign/ad-set/ad identifiers on the CRM lead, and uses the matching **Meta Leads > Ad Routing** record for the lead title, sales team, round-robin salesperson, source, medium, and Odoo campaign.
+
+Use **Sync Lead Ads** on the Meta account to discover routes immediately. An hourly synchronization also discovers new lead ads automatically. A newly discovered route remains **Needs Configuration** and its submissions stay safely pending until a manager selects its sales team and clicks **Confirm Routing & Import Waiting Leads**. This prevents a new or reused ad from being assigned to the wrong product team.
+
 Secrets are limited to Settings administrators. Use a permanent token with the Meta permissions required for Page and Lead Ads access.
 
 ## CRM status feedback

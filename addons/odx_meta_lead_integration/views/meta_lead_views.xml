@@ -7,11 +7,11 @@
     <record id="view_meta_account_form" model="ir.ui.view">
         <field name="name">odx.meta.account.form</field><field name="model">odx.meta.account</field>
         <field name="arch" type="xml">
-            <form><header><button name="action_test_connection" type="object" string="Test Connection" class="btn-primary"/></header>
+            <form><header><button name="action_test_connection" type="object" string="Test Connection" class="btn-primary"/><button name="action_sync_ads" type="object" string="Sync Lead Ads"/></header>
                 <sheet><widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_title"><label for="name"/><h1><field name="name"/></h1></div>
-                    <group><group><field name="company_id"/><field name="app_id"/><field name="graph_version"/></group>
-                        <group><field name="access_token" password="True"/><field name="app_secret" password="True"/><field name="verify_token"/><field name="active" invisible="1"/></group></group>
+                    <group><group><field name="company_id"/><field name="app_id"/><field name="graph_version"/><field name="ad_account_ref"/></group>
+                        <group><field name="access_token" password="True"/><field name="app_secret" password="True"/><field name="verify_token"/><field name="last_ad_sync_at" readonly="1"/><field name="active" invisible="1"/></group></group>
                     <group string="Webhook">
                         <field name="webhook_base_url" required="1" placeholder="https://example.trycloudflare.com"/>
                         <field name="webhook_callback_url" readonly="1" widget="CopyClipboardChar"/>
@@ -26,7 +26,7 @@
                             <field name="conversion_test_event_code" placeholder="Optional; remove after testing"/>
                         </group>
                     </group>
-                    <notebook><page string="Pages"><field name="page_ids"><list editable="bottom"><field name="name"/><field name="meta_page_ref"/><field name="page_access_token" password="True"/><field name="active"/></list></field></page></notebook>
+                    <notebook><page string="Pages"><field name="page_ids"><list editable="bottom"><field name="name"/><field name="meta_page_ref"/><field name="page_access_token" password="True"/><field name="active"/></list></field></page><page string="Lead Ad Routing"><field name="ad_route_ids" readonly="1"><list><field name="name"/><field name="form_id"/><field name="meta_effective_status"/><field name="configuration_state" widget="badge"/><field name="team_id"/><field name="pending_event_count"/></list></field></page></notebook>
                 </sheet><chatter/></form>
         </field>
     </record>
@@ -36,14 +36,22 @@
     </record>
     <record id="view_meta_form_form" model="ir.ui.view">
         <field name="name">odx.meta.form.form</field><field name="model">odx.meta.form</field>
-        <field name="arch" type="xml"><form><header><button name="action_mark_configured" type="object" string="Confirm Configuration &amp; Import Waiting Leads" class="btn-primary" invisible="configuration_state != 'needs_configuration'"/></header><sheet><widget name="web_ribbon" title="Needs Configuration" bg_color="text-bg-warning" invisible="configuration_state != 'needs_configuration'"/><group><group><field name="name"/><field name="configuration_state" widget="badge"/><field name="pending_event_count" readonly="1"/><field name="page_id"/><field name="meta_form_ref"/></group><group><field name="team_id" required="configuration_state == 'configured'"/><field name="fallback_user_id"/><field name="active"/></group></group>
+        <field name="arch" type="xml"><form><header><button name="action_mark_configured" type="object" string="Confirm Form Configuration" class="btn-primary" invisible="configuration_state != 'needs_configuration'"/></header><sheet><widget name="web_ribbon" title="Needs Configuration" bg_color="text-bg-warning" invisible="configuration_state != 'needs_configuration'"/><group><group><field name="name"/><field name="configuration_state" widget="badge"/><field name="pending_event_count" readonly="1"/><field name="page_id"/><field name="meta_form_ref"/><field name="route_by_ad"/></group><group><field name="team_id" string="Fallback Sales Team" required="configuration_state == 'configured' and not route_by_ad"/><field name="fallback_user_id" string="Fallback Salesperson"/><field name="active"/></group></group>
             <group string="Attribution"><field name="source_id"/><field name="medium_id"/><field name="campaign_id"/></group>
-            <notebook><page string="Field Mapping"><field name="mapping_ids"><list editable="bottom"><field name="sequence" widget="handle"/><field name="meta_field"/><field name="odoo_field_id"/></list></field></page></notebook>
+            <notebook><page string="Ad Routing"><field name="ad_route_ids" readonly="1"><list><field name="name"/><field name="meta_effective_status"/><field name="configuration_state" widget="badge"/><field name="team_id"/><field name="pending_event_count"/></list></field></page><page string="Field Mapping"><field name="mapping_ids"><list editable="bottom"><field name="sequence" widget="handle"/><field name="meta_field"/><field name="odoo_field_id"/></list></field></page></notebook>
         </sheet></form></field>
+    </record>
+    <record id="view_meta_ad_route_list" model="ir.ui.view">
+        <field name="name">odx.meta.ad.route.list</field><field name="model">odx.meta.ad.route</field>
+        <field name="arch" type="xml"><list><field name="name"/><field name="meta_effective_status"/><field name="configuration_state" widget="badge" decoration-warning="configuration_state == 'needs_configuration'" decoration-success="configuration_state == 'configured'"/><field name="pending_event_count"/><field name="form_id"/><field name="team_id"/><field name="fallback_user_id"/><field name="active"/></list></field>
+    </record>
+    <record id="view_meta_ad_route_form" model="ir.ui.view">
+        <field name="name">odx.meta.ad.route.form</field><field name="model">odx.meta.ad.route</field>
+        <field name="arch" type="xml"><form><header><button name="action_mark_configured" type="object" string="Confirm Routing &amp; Import Waiting Leads" class="btn-primary" invisible="configuration_state != 'needs_configuration'"/></header><sheet><widget name="web_ribbon" title="Needs Configuration" bg_color="text-bg-warning" invisible="configuration_state != 'needs_configuration'"/><div class="oe_title"><label for="name"/><h1><field name="name"/></h1></div><group><group><field name="configuration_state" widget="badge"/><field name="pending_event_count" readonly="1"/><field name="form_id"/><field name="account_id" readonly="1"/><field name="active"/></group><group><field name="team_id" required="configuration_state == 'configured'"/><field name="fallback_user_id"/><field name="source_id"/><field name="medium_id"/><field name="utm_campaign_id"/></group></group><group string="Meta Advertisement"><group><field name="meta_campaign_name"/><field name="meta_campaign_ref"/></group><group><field name="meta_adset_name"/><field name="meta_adset_ref"/></group><group><field name="meta_ad_name"/><field name="meta_ad_ref"/><field name="meta_status"/><field name="meta_effective_status"/></group></group></sheet></form></field>
     </record>
     <record id="view_meta_event_list" model="ir.ui.view">
         <field name="name">odx.meta.import.event.list</field><field name="model">odx.meta.import.event</field>
-        <field name="arch" type="xml"><list create="0" delete="0"><field name="create_date"/><field name="account_id"/><field name="form_id"/><field name="meta_lead_ref"/><field name="event_type"/><field name="state" decoration-danger="state == 'failed'" decoration-success="state == 'done'"/><field name="lead_id"/><field name="error_message"/></list></field>
+        <field name="arch" type="xml"><list create="0" delete="0"><field name="create_date"/><field name="account_id"/><field name="form_id"/><field name="route_id"/><field name="meta_lead_ref"/><field name="event_type"/><field name="state" decoration-danger="state == 'failed'" decoration-success="state == 'done'"/><field name="lead_id"/><field name="error_message"/></list></field>
     </record>
     <record id="view_meta_status_event_list" model="ir.ui.view">
         <field name="name">odx.meta.status.event.list</field><field name="model">odx.meta.status.event</field>
@@ -55,6 +63,7 @@
     </record>
     <record id="action_meta_account" model="ir.actions.act_window"><field name="name">Meta Accounts</field><field name="res_model">odx.meta.account</field><field name="view_mode">list,form</field></record>
     <record id="action_meta_form" model="ir.actions.act_window"><field name="name">Lead Forms</field><field name="res_model">odx.meta.form</field><field name="view_mode">list,form</field></record>
+    <record id="action_meta_ad_route" model="ir.actions.act_window"><field name="name">Ad Routing</field><field name="res_model">odx.meta.ad.route</field><field name="view_mode">list,form</field></record>
     <record id="action_meta_event" model="ir.actions.act_window"><field name="name">Import Events</field><field name="res_model">odx.meta.import.event</field><field name="view_mode">list,form</field></record>
     <record id="action_meta_status_event" model="ir.actions.act_window"><field name="name">Status Feedback</field><field name="res_model">odx.meta.status.event</field><field name="view_mode">list,form</field></record>
 </odoo>

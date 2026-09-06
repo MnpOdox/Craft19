@@ -160,10 +160,13 @@ class TestMetaLead(TransactionCase):
         })
         self.assertEqual(event.form_id, form)
         self.assertEqual(event.state, "pending")
+        self.assertTrue(form.route_by_ad)
 
         form.team_id = self.team
         lead_payload = {
             "id": "waiting-lead-1",
+            "ad_id": "new-ad-1",
+            "ad_name": "Outside Kerala Ad",
             "created_time": "2026-09-06T03:00:00+0000",
             "field_data": [
                 {"name": "full_name", "values": ["Waiting Customer"]},
@@ -171,12 +174,63 @@ class TestMetaLead(TransactionCase):
                 {"name": "state", "values": ["Uttar Pradesh"]},
             ],
         }
-        with patch.object(type(form), "_graph_request", return_value=lead_payload):
+        ad_metadata = {
+            "id": "new-ad-1", "name": "Outside Kerala Ad", "status": "ACTIVE",
+            "effective_status": "ACTIVE",
+            "adset": {"id": "adset-1", "name": "India Ad Set", "campaign": {
+                "id": "campaign-1", "name": "Ribbon Campaign",
+            }},
+        }
+        with patch.object(type(form), "_graph_request", return_value=lead_payload), patch.object(
+            type(self.account), "_graph_request", return_value=ad_metadata,
+        ):
             form.action_mark_configured()
+
+        route = self.env["odx.meta.ad.route"].search([("meta_ad_ref", "=", "new-ad-1")])
+        self.assertEqual(route.configuration_state, "needs_configuration")
+        self.assertEqual(event.state, "pending")
+        route.team_id = self.team
+        with patch.object(type(form), "_graph_request", return_value=lead_payload):
+            route.action_mark_configured()
 
         lead = self.env["crm.lead"].search([("meta_lead_id", "=", "waiting-lead-1")])
         self.assertEqual(form.configuration_state, "configured")
+        self.assertEqual(route.configuration_state, "configured")
         self.assertEqual(event.state, "done")
+        self.assertEqual(event.route_id, route)
+        self.assertEqual(lead.meta_ad_route_id, route)
+        self.assertEqual(lead.meta_ad_ref, "new-ad-1")
+        self.assertEqual(lead.name, "Outside Kerala Ad - Waiting Customer")
         self.assertEqual(lead.contact_name, "Waiting Customer")
         self.assertEqual(lead.phone, "+919999999999")
         self.assertEqual(lead.meta_location, "Uttar Pradesh")
+
+    def test_ad_sync_discovers_lead_ads_and_form_association(self):
+        self.account.ad_account_ref = "act_test"
+        response = {"data": [{
+            "id": "ad-sync-1",
+            "name": "Kerala Lead Ad",
+            "status": "ACTIVE",
+            "effective_status": "ACTIVE",
+            "adset": {"id": "adset-sync-1", "name": "Kerala Ad Set", "campaign": {
+                "id": "campaign-sync-1", "name": "Ribbon Campaign",
+            }},
+            "creative": {"object_story_spec": {
+                "page_id": self.page.meta_page_ref,
+                "video_data": {"call_to_action": {"value": {
+                    "lead_gen_form_id": self.form.meta_form_ref,
+                }}},
+            }},
+        }]}
+        with patch.object(type(self.account), "_graph_request", return_value=response) as request:
+            routes = self.account._sync_ad_routes()
+
+        self.assertEqual(len(routes), 1)
+        self.assertEqual(routes.form_id, self.form)
+        self.assertEqual(routes.meta_ad_ref, "ad-sync-1")
+        self.assertEqual(routes.meta_adset_ref, "adset-sync-1")
+        self.assertEqual(routes.meta_campaign_ref, "campaign-sync-1")
+        self.assertEqual(routes.meta_effective_status, "ACTIVE")
+        self.assertEqual(routes.configuration_state, "needs_configuration")
+        self.assertTrue(self.account.last_ad_sync_at)
+        self.assertEqual(request.call_args.args[2], "act_test/ads")

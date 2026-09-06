@@ -72,6 +72,12 @@ class MetaAccount(models.Model):
         groups="base.group_system",
     )
     page_ids = fields.One2many("odx.meta.page", "account_id")
+    ad_account_ref = fields.Char(
+        string="Meta Ad Account ID",
+        help="Meta ad account used to synchronize campaigns and lead ads, for example act_123456789.",
+    )
+    ad_route_ids = fields.One2many("odx.meta.ad.route", "account_id")
+    last_ad_sync_at = fields.Datetime(readonly=True, copy=False)
     last_reconcile_at = fields.Datetime(readonly=True, copy=False)
     conversion_sync_enabled = fields.Boolean(
         string="Send CRM Statuses to Meta",
@@ -121,6 +127,95 @@ class MetaAccount(models.Model):
         return {"type": "ir.actions.client", "tag": "display_notification", "params": {
             "title": _("Connection successful"), "message": result.get("name", result.get("id")), "type": "success"
         }}
+
+    def _resolved_ad_account_ref(self):
+        self.ensure_one()
+        if self.ad_account_ref:
+            return self.ad_account_ref if self.ad_account_ref.startswith("act_") else "act_%s" % self.ad_account_ref
+        payload = self._graph_request(
+            self, "GET", "me/adaccounts",
+            params={"fields": "id,name,account_status", "limit": 50},
+        )
+        accounts = [item for item in payload.get("data", []) if item.get("account_status") in (1, "1")]
+        if len(accounts) != 1:
+            raise ValidationError(_(
+                "Set the Meta Ad Account ID because the token exposes %(count)s active ad accounts.",
+                count=len(accounts),
+            ))
+        self.ad_account_ref = accounts[0]["id"]
+        return accounts[0]["id"]
+
+    @staticmethod
+    def _lead_form_ref_from_ad(ad):
+        def _walk(value):
+            if isinstance(value, dict):
+                if value.get("lead_gen_form_id"):
+                    return str(value["lead_gen_form_id"])
+                for nested in value.values():
+                    found = _walk(nested)
+                    if found:
+                        return found
+            elif isinstance(value, list):
+                for nested in value:
+                    found = _walk(nested)
+                    if found:
+                        return found
+            return False
+
+        return _walk((ad.get("creative") or {}).get("object_story_spec") or {})
+
+    def _sync_ad_routes(self):
+        self.ensure_one()
+        ad_account_ref = self._resolved_ad_account_ref()
+        params = {
+            "fields": (
+                "id,name,status,effective_status,"
+                "adset{id,name,campaign{id,name}},creative{id,object_story_spec}"
+            ),
+            "limit": 100,
+        }
+        synced = self.env["odx.meta.ad.route"]
+        while True:
+            payload = self._graph_request(self, "GET", "%s/ads" % ad_account_ref, params=params)
+            for ad in payload.get("data", []):
+                form_ref = self._lead_form_ref_from_ad(ad)
+                if not form_ref:
+                    continue
+                story = (ad.get("creative") or {}).get("object_story_spec") or {}
+                page_ref = story.get("page_id")
+                form = self.env["odx.meta.form"].sudo().search([
+                    ("account_id", "=", self.id), ("meta_form_ref", "=", form_ref),
+                ], limit=1)
+                if not form and page_ref:
+                    form = self._find_or_create_discovered_form(page_ref, form_ref)
+                if form:
+                    synced |= form._upsert_ad_route(ad)
+            paging = payload.get("paging") or {}
+            after = (paging.get("cursors") or {}).get("after") if paging.get("next") else False
+            if not after:
+                break
+            params["after"] = after
+        self.last_ad_sync_at = fields.Datetime.now()
+        return synced
+
+    def action_sync_ads(self):
+        total = self.env["odx.meta.ad.route"]
+        for account in self:
+            total |= account._sync_ad_routes()
+        return {"type": "ir.actions.client", "tag": "display_notification", "params": {
+            "title": _("Meta ads synchronized"),
+            "message": _("%(count)s lead-ad routing record(s) were synchronized.", count=len(total)),
+            "type": "success",
+        }}
+
+    @api.model
+    def _cron_sync_ads(self):
+        for account in self.search([("active", "=", True)]):
+            try:
+                account._sync_ad_routes()
+            except Exception:
+                _logger.exception("Meta ad synchronization failed for account %s", account.id)
+        return True
 
     def verify_signature(self, raw_body, signature):
         self.ensure_one()
@@ -180,6 +275,7 @@ class MetaAccount(models.Model):
             "page_id": page.id,
             "meta_form_ref": form_ref,
             "configuration_state": "needs_configuration",
+            "route_by_ad": True,
             "active": True,
         })
         form._create_default_mappings()
@@ -228,6 +324,11 @@ class MetaForm(models.Model):
     source_id = fields.Many2one("utm.source")
     medium_id = fields.Many2one("utm.medium")
     campaign_id = fields.Many2one("utm.campaign")
+    route_by_ad = fields.Boolean(
+        string="Route Leads by Meta Ad",
+        help="Require a configured ad-routing record before importing each submission.",
+    )
+    ad_route_ids = fields.One2many("odx.meta.ad.route", "form_id", string="Ad Routing")
     last_lead_created_time = fields.Datetime(copy=False)
 
     _form_unique = models.Constraint(
@@ -247,7 +348,7 @@ class MetaForm(models.Model):
     @api.constrains("configuration_state", "team_id")
     def _check_ready_configuration(self):
         for form in self.filtered(lambda item: item.configuration_state == "configured"):
-            if not form.team_id:
+            if not form.route_by_ad and not form.team_id:
                 raise ValidationError(_("Select a Sales Team before marking the Meta form as configured."))
 
     def _create_default_mappings(self):
@@ -274,7 +375,7 @@ class MetaForm(models.Model):
 
     def action_mark_configured(self):
         for form in self:
-            if not form.team_id:
+            if not form.route_by_ad and not form.team_id:
                 raise ValidationError(_("Select a Sales Team before activating this Meta form."))
             if not form.mapping_ids:
                 raise ValidationError(_("Add at least one CRM field mapping before activating this Meta form."))
@@ -318,6 +419,84 @@ class MetaForm(models.Model):
         cursor = (self.assignment_cursor + 1) % len(users)
         self.assignment_cursor = cursor
         return users[cursor]
+
+    def _upsert_ad_route(self, payload):
+        self.ensure_one()
+        ad_ref = str(payload.get("id") or payload.get("ad_id") or "")
+        if not ad_ref:
+            return self.env["odx.meta.ad.route"]
+        self.env.cr.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s))",
+            ["odx.meta.ad.route:%s:%s" % (self.account_id.id, ad_ref)],
+        )
+        route = self.env["odx.meta.ad.route"].sudo().with_context(active_test=False).search([
+            ("account_id", "=", self.account_id.id), ("meta_ad_ref", "=", ad_ref),
+        ], limit=1)
+        adset = payload.get("adset") or {}
+        campaign = adset.get("campaign") or {}
+        values = {
+            "form_id": self.id,
+            "name": payload.get("name") or payload.get("ad_name") or _("Discovered Meta Ad %s", ad_ref),
+            "meta_ad_name": payload.get("name") or payload.get("ad_name") or False,
+            "meta_adset_ref": str(adset.get("id") or payload.get("adset_id") or "") or False,
+            "meta_adset_name": adset.get("name") or payload.get("adset_name") or False,
+            "meta_campaign_ref": str(campaign.get("id") or payload.get("campaign_id") or "") or False,
+            "meta_campaign_name": campaign.get("name") or payload.get("campaign_name") or False,
+            "meta_status": payload.get("status") or False,
+            "meta_effective_status": payload.get("effective_status") or False,
+        }
+        if route:
+            route.write({key: value for key, value in values.items() if value is not False})
+        else:
+            values.update({
+                "meta_ad_ref": ad_ref,
+                "configuration_state": "needs_configuration",
+                "active": True,
+                "source_id": self.source_id.id,
+                "medium_id": self.medium_id.id,
+                "utm_campaign_id": self.campaign_id.id,
+            })
+            route = self.env["odx.meta.ad.route"].sudo().create(values)
+        return route
+
+    def _find_or_create_ad_route(self, payload):
+        self.ensure_one()
+        if not self.route_by_ad:
+            return self.env["odx.meta.ad.route"]
+        ad_ref = str(payload.get("ad_id") or "")
+        if not ad_ref:
+            return self.env["odx.meta.ad.route"]
+        route = self.env["odx.meta.ad.route"].sudo().with_context(active_test=False).search([
+            ("account_id", "=", self.account_id.id), ("meta_ad_ref", "=", ad_ref),
+        ], limit=1)
+        if route:
+            return route
+        metadata = {"id": ad_ref}
+        try:
+            metadata = self.account_id._graph_request(
+                self.account_id, "GET", ad_ref,
+                params={"fields": "id,name,status,effective_status,adset{id,name,campaign{id,name}}"},
+            )
+        except Exception as exc:
+            _logger.warning("Could not retrieve metadata for new Meta ad %s: %s", ad_ref, exc)
+        return self._upsert_ad_route(metadata)
+
+    def _routing_for_payload(self, payload, event=None):
+        self.ensure_one()
+        route = self._find_or_create_ad_route(payload)
+        if event and route:
+            event.route_id = route.id
+        if not self.route_by_ad:
+            return route
+        if not route:
+            if event:
+                event.write({"state": "pending", "error_message": _("Waiting for Meta ad identification")})
+            return False
+        if not route.active or route.configuration_state != "configured":
+            if event:
+                event.write({"state": "pending", "error_message": _("Waiting for ad routing configuration")})
+            return False
+        return route
 
     def _mapped_values(self, payload):
         self.ensure_one()
@@ -365,8 +544,11 @@ class MetaForm(models.Model):
             (_("Page"), self.page_id.name),
             (_("Form / Product"), self.name),
             (_("Campaign"), payload.get("campaign_name")),
+            (_("Campaign ID"), payload.get("campaign_id")),
             (_("Ad Set"), payload.get("adset_name")),
+            (_("Ad Set ID"), payload.get("adset_id")),
             (_("Ad"), payload.get("ad_name")),
+            (_("Ad ID"), payload.get("ad_id")),
             (_("Meta Lead ID"), payload.get("id")),
         ]
         rows = [
@@ -408,23 +590,31 @@ class MetaForm(models.Model):
                     "processed_at": fields.Datetime.now(),
                 })
             return existing
+        route = self._routing_for_payload(payload, event=event)
+        if self.route_by_ad and not route:
+            return self.env["crm.lead"]
         values = self._mapped_values(payload)
-        user = self._next_salesperson()
+        routing = route or self
+        user = routing._next_salesperson()
         created = _parse_meta_datetime(payload.get("created_time"))
         full_name = self._full_name_from_payload(payload) or values.get("contact_name")
-        title = self.name
+        title = route.name if route else self.name
         if full_name:
-            title = "%s - %s" % (self.name, full_name)
+            title = "%s - %s" % (title, full_name)
         values.update({
             "name": title,
             "contact_name": full_name or False,
             "description": self._lead_description(payload, created),
-            "type": "lead", "team_id": self.team_id.id, "user_id": user.id if user else False,
+            "type": "lead", "team_id": routing.team_id.id, "user_id": user.id if user else False,
             "company_id": self.company_id.id, "meta_lead_id": lead_ref,
-            "meta_page_id": self.page_id.id, "meta_form_id": self.id, "meta_created_time": created,
+            "meta_page_id": self.page_id.id, "meta_form_id": self.id,
+            "meta_ad_route_id": route.id if route else False, "meta_created_time": created,
+            "meta_campaign_ref": payload.get("campaign_id"), "meta_adset_ref": payload.get("adset_id"),
+            "meta_ad_ref": payload.get("ad_id"),
             "meta_campaign_name": payload.get("campaign_name"), "meta_adset_name": payload.get("adset_name"),
-            "meta_ad_name": payload.get("ad_name"), "source_id": self.source_id.id,
-            "medium_id": self.medium_id.id, "campaign_id": self.campaign_id.id,
+            "meta_ad_name": payload.get("ad_name"), "source_id": routing.source_id.id,
+            "medium_id": routing.medium_id.id,
+            "campaign_id": (route.utm_campaign_id if route else self.campaign_id).id,
         })
         lead = self.env["crm.lead"].sudo().create(values)
         self.last_lead_created_time = max(filter(None, [self.last_lead_created_time, created]))
@@ -436,12 +626,18 @@ class MetaForm(models.Model):
                 "next_retry_at": False,
                 "processed_at": fields.Datetime.now(),
             })
-        lead.message_post(body=_("Imported from Meta Lead Ads form %s and assigned automatically.", self.name))
+        lead.message_post(body=_(
+            "Imported from Meta Lead Ads form %(form)s using routing %(route)s and assigned automatically.",
+            form=self.name, route=route.name if route else _("Form default"),
+        ))
         return lead
 
     def _fetch_and_import(self, lead_ref, event=None):
         self.ensure_one()
-        fields_list = "id,created_time,field_data,campaign_name,adset_name,ad_name,form_id"
+        fields_list = (
+            "id,created_time,field_data,campaign_id,campaign_name,adset_id,adset_name,"
+            "ad_id,ad_name,form_id"
+        )
         payload = self._graph_request(
             self.account_id,
             "GET",
@@ -453,7 +649,10 @@ class MetaForm(models.Model):
 
     def _reconcile(self):
         self.ensure_one()
-        params = {"fields": "id,created_time,field_data,campaign_name,adset_name,ad_name,form_id", "limit": 100}
+        params = {"fields": (
+            "id,created_time,field_data,campaign_id,campaign_name,adset_id,adset_name,"
+            "ad_id,ad_name,form_id"
+        ), "limit": 100}
         since = self.last_lead_created_time or (fields.Datetime.now() - timedelta(days=7))
         params["filtering"] = json.dumps([{"field": "time_created", "operator": "GREATER_THAN", "value": int(since.timestamp())}])
         payload = self._graph_request(
@@ -466,6 +665,7 @@ class MetaForm(models.Model):
         for item in reversed(payload.get("data", [])):
             event = self.env["odx.meta.import.event"].sudo().create({
                 "account_id": self.account_id.id, "form_id": self.id, "meta_lead_ref": item.get("id"),
+                "route_id": self._find_or_create_ad_route(item).id,
                 "event_type": "reconcile", "state": "processing", "payload": json.dumps(item),
             })
             try:
@@ -477,6 +677,101 @@ class MetaForm(models.Model):
                     "next_retry_at": fields.Datetime.now() + timedelta(minutes=2),
                 })
                 _logger.exception("Unable to import Meta lead %s", item.get("id"))
+
+
+class MetaAdRoute(models.Model):
+    _name = "odx.meta.ad.route"
+    _description = "Meta Lead Ad Routing"
+    _order = "meta_effective_status, name"
+
+    name = fields.Char(required=True)
+    active = fields.Boolean(default=True)
+    form_id = fields.Many2one("odx.meta.form", required=True, ondelete="cascade", index=True)
+    page_id = fields.Many2one(related="form_id.page_id", store=True)
+    account_id = fields.Many2one(related="form_id.account_id", store=True, index=True)
+    company_id = fields.Many2one(related="form_id.company_id", store=True, index=True)
+    configuration_state = fields.Selection([
+        ("needs_configuration", "Needs Configuration"),
+        ("configured", "Configured"),
+    ], required=True, default="needs_configuration", readonly=True, copy=False, index=True)
+    pending_event_count = fields.Integer(compute="_compute_pending_event_count")
+    meta_campaign_ref = fields.Char(string="Meta Campaign ID", readonly=True)
+    meta_campaign_name = fields.Char(string="Meta Campaign", readonly=True)
+    meta_adset_ref = fields.Char(string="Meta Ad Set ID", readonly=True)
+    meta_adset_name = fields.Char(string="Meta Ad Set", readonly=True)
+    meta_ad_ref = fields.Char(string="Meta Ad ID", required=True, readonly=True, index=True)
+    meta_ad_name = fields.Char(string="Meta Ad", readonly=True)
+    meta_status = fields.Char(string="Configured Status", readonly=True)
+    meta_effective_status = fields.Char(string="Effective Status", readonly=True)
+    team_id = fields.Many2one("crm.team", domain="[('company_id', 'in', [False, company_id])]")
+    fallback_user_id = fields.Many2one("res.users", domain="[('share', '=', False)]")
+    assignment_cursor = fields.Integer(default=-1, groups="base.group_system", copy=False)
+    source_id = fields.Many2one("utm.source")
+    medium_id = fields.Many2one("utm.medium")
+    utm_campaign_id = fields.Many2one("utm.campaign", string="Odoo Campaign")
+
+    _ad_unique = models.Constraint(
+        "UNIQUE(account_id, meta_ad_ref)", "This Meta ad already has a routing record."
+    )
+
+    @api.depends("configuration_state")
+    def _compute_pending_event_count(self):
+        grouped = self.env["odx.meta.import.event"].sudo()._read_group(
+            [("route_id", "in", self.ids), ("state", "in", ["pending", "failed"])],
+            ["route_id"], ["__count"],
+        ) if self.ids else []
+        counts = {route.id: count for route, count in grouped}
+        for route in self:
+            route.pending_event_count = counts.get(route.id, 0)
+
+    @api.constrains("configuration_state", "team_id")
+    def _check_configuration(self):
+        for route in self.filtered(lambda item: item.configuration_state == "configured"):
+            if not route.team_id:
+                raise ValidationError(_("Select a Sales Team before activating this ad routing record."))
+
+    def _next_salesperson(self):
+        self.ensure_one()
+        self.env.cr.execute("SELECT id FROM odx_meta_ad_route WHERE id = %s FOR UPDATE", [self.id])
+        members = self.env["crm.team.member"].sudo().search([
+            ("crm_team_id", "=", self.team_id.id), ("active", "=", True),
+            ("user_id.active", "=", True), ("user_id.share", "=", False),
+        ], order="id")
+        users = members.mapped("user_id")
+        if not users:
+            return self.fallback_user_id or self.team_id.user_id
+        cursor = (self.assignment_cursor + 1) % len(users)
+        self.assignment_cursor = cursor
+        return users[cursor]
+
+    def action_mark_configured(self):
+        for route in self:
+            if route.form_id.configuration_state != "configured":
+                raise ValidationError(_("Configure the Meta form field mappings before activating its ad routing."))
+            if not route.team_id:
+                raise ValidationError(_("Select a Sales Team before activating this ad routing record."))
+        self.write({"configuration_state": "configured"})
+        self._process_waiting_events()
+        return {"type": "ir.actions.client", "tag": "display_notification", "params": {
+            "title": _("Ad routing configured"),
+            "message": _("Waiting submissions for this ad were processed."),
+            "type": "success",
+        }}
+
+    def _process_waiting_events(self):
+        for route in self:
+            events = self.env["odx.meta.import.event"].sudo().search([
+                ("route_id", "=", route.id), ("state", "in", ["pending", "failed"]),
+                ("meta_lead_ref", "!=", False),
+            ], order="create_date, id")
+            for event in events:
+                with self.env.cr.savepoint():
+                    try:
+                        event.state = "processing"
+                        event.form_id._fetch_and_import(event.meta_lead_ref, event=event)
+                    except Exception as exc:
+                        event.write({"state": "failed", "error_message": str(exc)[:2000]})
+        return True
 
 
 class MetaFieldMapping(models.Model):
@@ -506,6 +801,7 @@ class MetaImportEvent(models.Model):
 
     account_id = fields.Many2one("odx.meta.account", required=True, ondelete="cascade", index=True)
     form_id = fields.Many2one("odx.meta.form", ondelete="set null", index=True)
+    route_id = fields.Many2one("odx.meta.ad.route", string="Ad Routing", ondelete="set null", index=True)
     meta_lead_ref = fields.Char(index=True)
     event_type = fields.Selection([("webhook", "Webhook"), ("reconcile", "Reconciliation")], required=True)
     state = fields.Selection([
@@ -545,18 +841,50 @@ class MetaImportEvent(models.Model):
         return True
 
     @api.model
+    def _discover_unmapped_routes(self):
+        events = self.sudo().search([
+            ("route_id", "=", False),
+            ("form_id.route_by_ad", "=", True),
+            ("state", "in", ["pending", "failed"]),
+            ("meta_lead_ref", "!=", False),
+        ], order="create_date, id", limit=100)
+        for event in events:
+            try:
+                payload = json.loads(event.payload or "{}")
+            except ValueError:
+                continue
+            route = event.form_id._find_or_create_ad_route(payload)
+            if route:
+                event.write({
+                    "route_id": route.id,
+                    "state": "pending",
+                    "error_message": "Waiting for ad routing configuration",
+                    "next_retry_at": False,
+                })
+        return True
+
+    @api.model
     def _cron_retry(self):
         self._discover_unmapped_forms()
+        self._discover_unmapped_routes()
         events = self.search([
             ("state", "in", ["pending", "failed"]), ("retry_count", "<", 5),
             ("form_id", "!=", False), ("meta_lead_ref", "!=", False),
             ("form_id.active", "=", True), ("form_id.configuration_state", "=", "configured"),
             "|", ("next_retry_at", "=", False), ("next_retry_at", "<=", fields.Datetime.now()),
-        ], limit=100)
+        ], limit=200).filtered(lambda event: (
+            not event.form_id.route_by_ad
+            or (
+                event.route_id.active
+                and event.route_id.configuration_state == "configured"
+            )
+        ))[:100]
         for event in events:
             try:
                 event.state = "processing"
-                event.form_id._fetch_and_import(event.meta_lead_ref, event=event)
+                lead = event.form_id._fetch_and_import(event.meta_lead_ref, event=event)
+                if not lead and event.state == "processing":
+                    event.write({"state": "pending", "error_message": "Waiting for ad routing configuration"})
             except Exception as exc:
                 count = event.retry_count + 1
                 event.write({"state": "failed", "retry_count": count, "error_message": str(exc)[:2000],

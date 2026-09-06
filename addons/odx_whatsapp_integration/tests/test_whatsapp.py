@@ -203,6 +203,30 @@ class TestWhatsApp(TransactionCase):
         self.assertTrue(form.whatsapp_auto_last_sent_at)
         self.assertFalse(form.whatsapp_auto_last_error)
 
+    def test_pending_ad_route_does_not_start_whatsapp_automation(self):
+        form = self._meta_form_with_auto_template("pending_route")
+        form.route_by_ad = True
+        payload = {
+            "id": "meta-pending-ad-route",
+            "ad_id": "unconfigured-ad",
+            "field_data": [
+                {"name": "full_name", "values": ["Pending Customer"]},
+                {"name": "phone_number", "values": ["+919811223399"]},
+            ],
+        }
+
+        with patch.object(type(form.account_id), "_graph_request", return_value={
+            "id": "unconfigured-ad", "name": "New Unconfigured Ad",
+        }):
+            lead = form._import_payload(payload)
+
+        self.assertFalse(lead)
+        route = self.env["odx.meta.ad.route"].search([("meta_ad_ref", "=", "unconfigured-ad")])
+        self.assertEqual(route.configuration_state, "needs_configuration")
+        self.assertFalse(self.env["odx.whatsapp.message"].search_count([
+            ("body", "ilike", "Pending Customer"),
+        ]))
+
     def test_meta_auto_template_sudo_job_is_not_blocked_by_lead_owner(self):
         form = self._meta_form_with_auto_template("sudo_job")
         lead = self.env["crm.lead"].create({

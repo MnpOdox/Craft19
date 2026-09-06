@@ -18,6 +18,15 @@
         <field name="interval_type">minutes</field>
         <field name="active" eval="True"/>
     </record>
+    <record id="ir_cron_meta_ad_sync" model="ir.cron">
+        <field name="name">Meta Leads: synchronize lead ads</field>
+        <field name="model_id" ref="model_odx_meta_account"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_sync_ads()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">hours</field>
+        <field name="active" eval="True"/>
+    </record>
     <record id="ir_cron_meta_status_retry" model="ir.cron">
         <field name="name">Meta Leads: retry CRM status feedback</field>
         <field name="model_id" ref="model_odx_meta_status_event"/>

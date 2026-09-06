@@ -195,6 +195,9 @@ class MetaForm(models.Model):
             ("meta_lead_id", "=", lead_ref),
         ]))
         lead = super()._import_payload(payload, event=event)
-        if not existed and self.whatsapp_auto_send_enabled:
+        # Ad-level routing can deliberately leave an event waiting until its
+        # route is configured.  In that case the Meta importer returns an
+        # empty lead recordset and automation must not start yet.
+        if lead and not existed and self.whatsapp_auto_send_enabled:
             self._start_whatsapp_followup_automation(lead)
         return lead

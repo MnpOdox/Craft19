@@ -37,15 +37,26 @@ class MetaLeadWebhook(http.Controller):
                 ], limit=1)
                 if not form:
                     form = account._find_or_create_discovered_form(value.get("page_id"), form_ref)
+                route = form._find_or_create_ad_route(value) if form else request.env["odx.meta.ad.route"]
+                route_ready = bool(
+                    not form
+                    or not form.route_by_ad
+                    or (route and route.active and route.configuration_state == "configured")
+                )
                 ready = bool(
-                    form and form.active and form.configuration_state == "configured"
+                    form and form.active and form.configuration_state == "configured" and route_ready
                 )
                 event = request.env["odx.meta.import.event"].sudo().create({
-                    "account_id": account.id, "form_id": form.id, "meta_lead_ref": lead_ref,
+                    "account_id": account.id, "form_id": form.id, "route_id": route.id,
+                    "meta_lead_ref": lead_ref,
                     "event_type": "webhook", "state": "processing" if ready else ("pending" if form else "failed"),
                     "payload": json.dumps(value),
                     "error_message": False if ready else (
-                        "Waiting for form configuration" if form else "No active form mapping"
+                        (
+                            "Waiting for form configuration"
+                            if form and form.configuration_state != "configured"
+                            else "Waiting for ad routing configuration"
+                        ) if form else "No active form mapping"
                     ),
                 })
                 if ready:
