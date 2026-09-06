@@ -1,6 +1,6 @@
 {
     "name": "ODX Meta Lead Integration",
-    "version": "19.0.2.0.0",
+    "version": "19.0.3.0.0",
     "summary": "Import Meta Lead Ads into CRM with secure webhooks and assignment",
     "author": "OpenAI",
     "license": "LGPL-3",

@@ -8,6 +8,8 @@ Configure an account, Page, form, CRM field mappings, and sales team under **Met
 
 Subscribe the Page to the `leadgen` webhook field. The callback validates `X-Hub-Signature-256`, retrieves the full lead from Graph API, deduplicates on Meta lead ID, and assigns it round-robin. A 15-minute reconciliation cron catches missed events.
 
+When a webhook references a new Instant Form, Odoo automatically creates that form as **Needs Configuration**, adds standard name/email/phone mappings, and retains its submissions. A manager selects the sales team, reviews mappings and automation, then clicks **Confirm Configuration & Import Waiting Leads**. Odoo immediately processes the waiting webhook events; reconciliation recovers any additional submissions.
+
 Secrets are limited to Settings administrators. Use a permanent token with the Meta permissions required for Page and Lead Ads access.
 
 ## CRM status feedback

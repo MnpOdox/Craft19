@@ -32,15 +32,23 @@ class MetaLeadWebhook(http.Controller):
                 lead_ref, form_ref = str(value.get("leadgen_id") or ""), str(value.get("form_id") or "")
                 if change.get("field") != "leadgen" or not lead_ref:
                     continue
-                form = request.env["odx.meta.form"].sudo().search([
-                    ("account_id", "=", account.id), ("meta_form_ref", "=", form_ref), ("active", "=", True)
+                form = request.env["odx.meta.form"].sudo().with_context(active_test=False).search([
+                    ("account_id", "=", account.id), ("meta_form_ref", "=", form_ref),
                 ], limit=1)
+                if not form:
+                    form = account._find_or_create_discovered_form(value.get("page_id"), form_ref)
+                ready = bool(
+                    form and form.active and form.configuration_state == "configured"
+                )
                 event = request.env["odx.meta.import.event"].sudo().create({
                     "account_id": account.id, "form_id": form.id, "meta_lead_ref": lead_ref,
-                    "event_type": "webhook", "state": "processing" if form else "failed",
-                    "payload": json.dumps(value), "error_message": False if form else "No active form mapping",
+                    "event_type": "webhook", "state": "processing" if ready else ("pending" if form else "failed"),
+                    "payload": json.dumps(value),
+                    "error_message": False if ready else (
+                        "Waiting for form configuration" if form else "No active form mapping"
+                    ),
                 })
-                if form:
+                if ready:
                     try:
                         form._fetch_and_import(lead_ref, event=event)
                     except Exception as exc:

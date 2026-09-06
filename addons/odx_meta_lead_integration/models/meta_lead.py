@@ -132,7 +132,9 @@ class MetaAccount(models.Model):
     @api.model
     def _cron_reconcile(self):
         for account in self.search([("active", "=", True)]):
-            for form in account.page_ids.form_ids.filtered("active"):
+            for form in account.page_ids.form_ids.filtered(
+                lambda item: item.active and item.configuration_state == "configured"
+            ):
                 try:
                     form._reconcile()
                 except Exception as exc:  # cron must continue with other forms
@@ -142,6 +144,46 @@ class MetaAccount(models.Model):
                         "event_type": "reconcile", "error_message": str(exc)[:2000],
                     })
             account.last_reconcile_at = fields.Datetime.now()
+
+    def _find_or_create_discovered_form(self, page_ref, form_ref):
+        """Create a visible configuration placeholder for a new Meta Instant Form."""
+        self.ensure_one()
+        page_ref, form_ref = str(page_ref or ""), str(form_ref or "")
+        if not page_ref or not form_ref:
+            return self.env["odx.meta.form"]
+        lock_key = "odx.meta.form:%s:%s" % (self.id, form_ref)
+        self.env.cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", [lock_key])
+        form = self.env["odx.meta.form"].sudo().with_context(active_test=False).search([
+            ("account_id", "=", self.id), ("meta_form_ref", "=", form_ref),
+        ], limit=1)
+        if form:
+            return form
+        page = self.env["odx.meta.page"].sudo().with_context(active_test=False).search([
+            ("account_id", "=", self.id), ("meta_page_ref", "=", page_ref),
+        ], limit=1)
+        if not page:
+            return self.env["odx.meta.form"]
+        name = _("Discovered Meta Form %s", form_ref)
+        try:
+            metadata = self._graph_request(
+                self,
+                "GET",
+                form_ref,
+                access_token=page.sudo().page_access_token,
+                params={"fields": "id,name,status"},
+            )
+            name = metadata.get("name") or name
+        except Exception as exc:
+            _logger.warning("Could not retrieve metadata for new Meta form %s: %s", form_ref, exc)
+        form = self.env["odx.meta.form"].sudo().create({
+            "name": name,
+            "page_id": page.id,
+            "meta_form_ref": form_ref,
+            "configuration_state": "needs_configuration",
+            "active": True,
+        })
+        form._create_default_mappings()
+        return form
 
 
 class MetaPage(models.Model):
@@ -174,7 +216,12 @@ class MetaForm(models.Model):
     account_id = fields.Many2one(related="page_id.account_id", store=True)
     company_id = fields.Many2one(related="page_id.company_id", store=True)
     meta_form_ref = fields.Char(string="Meta Form ID", required=True, index=True)
-    team_id = fields.Many2one("crm.team", required=True, domain="[('company_id', 'in', [False, company_id])]" )
+    configuration_state = fields.Selection([
+        ("needs_configuration", "Needs Configuration"),
+        ("configured", "Configured"),
+    ], required=True, default="configured", readonly=True, copy=False, index=True)
+    pending_event_count = fields.Integer(compute="_compute_pending_event_count")
+    team_id = fields.Many2one("crm.team", domain="[('company_id', 'in', [False, company_id])]" )
     fallback_user_id = fields.Many2one("res.users", domain="[('share', '=', False)]")
     assignment_cursor = fields.Integer(default=-1, groups="base.group_system", copy=False)
     mapping_ids = fields.One2many("odx.meta.field.mapping", "form_id")
@@ -186,6 +233,76 @@ class MetaForm(models.Model):
     _form_unique = models.Constraint(
         "UNIQUE(account_id, meta_form_ref)", "This lead form is already configured."
     )
+
+    @api.depends("configuration_state")
+    def _compute_pending_event_count(self):
+        grouped = self.env["odx.meta.import.event"].sudo()._read_group(
+            [("form_id", "in", self.ids), ("state", "in", ["pending", "failed"])],
+            ["form_id"], ["__count"],
+        ) if self.ids else []
+        counts = {form.id: count for form, count in grouped}
+        for form in self:
+            form.pending_event_count = counts.get(form.id, 0)
+
+    @api.constrains("configuration_state", "team_id")
+    def _check_ready_configuration(self):
+        for form in self.filtered(lambda item: item.configuration_state == "configured"):
+            if not form.team_id:
+                raise ValidationError(_("Select a Sales Team before marking the Meta form as configured."))
+
+    def _create_default_mappings(self):
+        targets = {
+            "full_name": "contact_name",
+            "email": "email_from",
+            "phone_number": "phone",
+        }
+        field_records = self.env["ir.model.fields"].sudo().search([
+            ("model", "=", "crm.lead"), ("name", "in", list(targets.values())),
+        ])
+        fields_by_name = {field.name: field for field in field_records}
+        for form in self:
+            existing = set(form.mapping_ids.mapped("meta_field"))
+            values = [{
+                "form_id": form.id,
+                "meta_field": meta_field,
+                "odoo_field_id": fields_by_name[odoo_field].id,
+            } for meta_field, odoo_field in targets.items()
+              if meta_field not in existing and odoo_field in fields_by_name]
+            if values:
+                self.env["odx.meta.field.mapping"].sudo().create(values)
+
+    def action_mark_configured(self):
+        for form in self:
+            if not form.team_id:
+                raise ValidationError(_("Select a Sales Team before activating this Meta form."))
+            if not form.mapping_ids:
+                raise ValidationError(_("Add at least one CRM field mapping before activating this Meta form."))
+        self.write({"configuration_state": "configured"})
+        self._process_waiting_events()
+        return {"type": "ir.actions.client", "tag": "display_notification", "params": {
+            "title": _("Meta form configured"),
+            "message": _("Waiting submissions were processed. Reconciliation will recover any others."),
+            "type": "success",
+        }}
+
+    def _process_waiting_events(self):
+        events = self.env["odx.meta.import.event"].sudo().search([
+            ("form_id", "in", self.ids),
+            ("state", "in", ["pending", "failed"]),
+            ("meta_lead_ref", "!=", False),
+        ], order="create_date, id")
+        for event in events:
+            with self.env.cr.savepoint():
+                try:
+                    event.state = "processing"
+                    event.form_id._fetch_and_import(event.meta_lead_ref, event=event)
+                except Exception as exc:
+                    count = event.retry_count + 1
+                    event.write({
+                        "state": "failed", "retry_count": count,
+                        "error_message": str(exc)[:2000],
+                        "next_retry_at": fields.Datetime.now() + timedelta(minutes=min(2 ** count, 60)),
+                    })
 
     def _next_salesperson(self):
         self.ensure_one()
@@ -402,10 +519,37 @@ class MetaImportEvent(models.Model):
     lead_id = fields.Many2one("crm.lead", readonly=True, ondelete="set null")
 
     @api.model
+    def _discover_unmapped_forms(self):
+        events = self.sudo().search([
+            ("form_id", "=", False),
+            ("state", "=", "failed"),
+            ("error_message", "=", "No active form mapping"),
+        ], order="create_date, id", limit=100)
+        for event in events:
+            try:
+                payload = json.loads(event.payload or "{}")
+            except ValueError:
+                continue
+            form = event.account_id.sudo()._find_or_create_discovered_form(
+                payload.get("page_id"), payload.get("form_id")
+            )
+            if not form:
+                continue
+            event.write({
+                "form_id": form.id,
+                "state": "pending",
+                "error_message": "Waiting for form configuration",
+                "next_retry_at": False,
+            })
+        return True
+
+    @api.model
     def _cron_retry(self):
+        self._discover_unmapped_forms()
         events = self.search([
-            ("state", "=", "failed"), ("retry_count", "<", 5),
+            ("state", "in", ["pending", "failed"]), ("retry_count", "<", 5),
             ("form_id", "!=", False), ("meta_lead_ref", "!=", False),
+            ("form_id.active", "=", True), ("form_id.configuration_state", "=", "configured"),
             "|", ("next_retry_at", "=", False), ("next_retry_at", "<=", fields.Datetime.now()),
         ], limit=100)
         for event in events:

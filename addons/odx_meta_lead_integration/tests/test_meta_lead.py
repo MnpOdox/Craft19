@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from odoo import fields
@@ -131,3 +132,49 @@ class TestMetaLead(TransactionCase):
     def test_conversion_configuration_requires_dataset_and_token(self):
         with self.assertRaises(ValidationError):
             self.account.write({"conversion_sync_enabled": True})
+
+    def test_unknown_form_is_discovered_and_waiting_lead_imports_after_confirmation(self):
+        webhook_value = {
+            "leadgen_id": "waiting-lead-1",
+            "page_id": self.page.meta_page_ref,
+            "form_id": "new-form-1",
+        }
+        event = self.env["odx.meta.import.event"].create({
+            "account_id": self.account.id,
+            "meta_lead_ref": webhook_value["leadgen_id"],
+            "event_type": "webhook",
+            "state": "failed",
+            "payload": json.dumps(webhook_value),
+            "error_message": "No active form mapping",
+        })
+        with patch.object(type(self.account), "_graph_request", return_value={
+            "id": "new-form-1", "name": "New Product Form", "status": "ACTIVE",
+        }):
+            self.env["odx.meta.import.event"]._discover_unmapped_forms()
+
+        form = self.env["odx.meta.form"].search([("meta_form_ref", "=", "new-form-1")])
+        self.assertEqual(form.configuration_state, "needs_configuration")
+        self.assertFalse(form.team_id)
+        self.assertEqual(set(form.mapping_ids.mapped("meta_field")), {
+            "full_name", "email", "phone_number",
+        })
+        self.assertEqual(event.form_id, form)
+        self.assertEqual(event.state, "pending")
+
+        form.team_id = self.team
+        lead_payload = {
+            "id": "waiting-lead-1",
+            "created_time": "2026-09-06T03:00:00+0000",
+            "field_data": [
+                {"name": "full_name", "values": ["Waiting Customer"]},
+                {"name": "phone_number", "values": ["+919999999999"]},
+            ],
+        }
+        with patch.object(type(form), "_graph_request", return_value=lead_payload):
+            form.action_mark_configured()
+
+        lead = self.env["crm.lead"].search([("meta_lead_id", "=", "waiting-lead-1")])
+        self.assertEqual(form.configuration_state, "configured")
+        self.assertEqual(event.state, "done")
+        self.assertEqual(lead.contact_name, "Waiting Customer")
+        self.assertEqual(lead.phone, "+919999999999")

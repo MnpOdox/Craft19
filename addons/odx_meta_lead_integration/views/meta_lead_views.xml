@@ -32,11 +32,11 @@
     </record>
     <record id="view_meta_form_list" model="ir.ui.view">
         <field name="name">odx.meta.form.list</field><field name="model">odx.meta.form</field>
-        <field name="arch" type="xml"><list><field name="name"/><field name="page_id"/><field name="team_id"/><field name="fallback_user_id"/><field name="last_lead_created_time"/><field name="active"/></list></field>
+        <field name="arch" type="xml"><list><field name="name"/><field name="configuration_state" widget="badge" decoration-warning="configuration_state == 'needs_configuration'" decoration-success="configuration_state == 'configured'"/><field name="pending_event_count"/><field name="page_id"/><field name="team_id"/><field name="fallback_user_id"/><field name="last_lead_created_time"/><field name="active"/></list></field>
     </record>
     <record id="view_meta_form_form" model="ir.ui.view">
         <field name="name">odx.meta.form.form</field><field name="model">odx.meta.form</field>
-        <field name="arch" type="xml"><form><sheet><group><group><field name="name"/><field name="page_id"/><field name="meta_form_ref"/></group><group><field name="team_id"/><field name="fallback_user_id"/><field name="active"/></group></group>
+        <field name="arch" type="xml"><form><header><button name="action_mark_configured" type="object" string="Confirm Configuration &amp; Import Waiting Leads" class="btn-primary" invisible="configuration_state != 'needs_configuration'"/></header><sheet><widget name="web_ribbon" title="Needs Configuration" bg_color="text-bg-warning" invisible="configuration_state != 'needs_configuration'"/><group><group><field name="name"/><field name="configuration_state" widget="badge"/><field name="pending_event_count" readonly="1"/><field name="page_id"/><field name="meta_form_ref"/></group><group><field name="team_id" required="configuration_state == 'configured'"/><field name="fallback_user_id"/><field name="active"/></group></group>
             <group string="Attribution"><field name="source_id"/><field name="medium_id"/><field name="campaign_id"/></group>
             <notebook><page string="Field Mapping"><field name="mapping_ids"><list editable="bottom"><field name="sequence" widget="handle"/><field name="meta_field"/><field name="odoo_field_id"/></list></field></page></notebook>
         </sheet></form></field>
