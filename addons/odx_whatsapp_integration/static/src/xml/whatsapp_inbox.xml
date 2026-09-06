@@ -115,6 +115,7 @@
                                 <button class="o_wa_template_send" t-att-disabled="!canSend" t-on-click="send"><i t-att-class="state.sending ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-paper-plane'"/> Send Template</button>
                             </div>
                             <div class="o_wa_inline_media" t-if="state.mode === 'media'">
+                                <div t-if="state.preparingMedia" class="alert alert-info py-2 mb-2"><i class="fa fa-circle-o-notch fa-spin"/> Optimizing photos for faster upload…</div>
                                 <button t-if="!hasMedia" class="o_wa_media_dropzone" t-att-class="state.mediaDragging ? 'o_dragging' : ''"
                                         t-on-click="() => this.mediaInputRef.el.click()"
                                         t-on-dragover="(ev) => { ev.preventDefault(); state.mediaDragging = true; }"
@@ -129,10 +130,11 @@
                                         <article t-foreach="state.mediaItems" t-as="item" t-key="item.id">
                                             <div class="o_wa_image_batch_preview"><img t-att-src="item.preview" t-att-alt="item.name"/><button t-on-click="() => this.removeMediaItem(item_index)" title="Remove image"><i class="fa fa-times"/></button></div>
                                             <strong t-esc="item.name"/>
+                                            <small t-if="item.optimized" class="text-success"><i class="fa fa-compress"/> Optimized · <t t-esc="formatBytes(item.size)"/></small>
                                             <input type="text" placeholder="Caption (optional)" t-att-value="item.caption" t-on-input="(ev) => this.setMediaItemCaption(item_index, ev)"/>
                                         </article>
                                     </div>
-                                    <div class="o_wa_image_batch_footer"><button class="o_remove" t-on-click="clearMedia"><i class="fa fa-trash"/> Clear all</button><button class="o_send" t-att-disabled="state.sending" t-on-click="sendMedia"><i t-att-class="state.sending ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-paper-plane'"/> Send <t t-esc="state.mediaItems.length"/> image<t t-if="state.mediaItems.length !== 1">s</t></button></div>
+                                    <div class="o_wa_image_batch_footer"><button class="o_remove" t-on-click="clearMedia"><i class="fa fa-trash"/> Clear all</button><button class="o_send" t-att-disabled="state.sending || state.preparingMedia" t-on-click="sendMedia"><i t-att-class="state.sending ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-paper-plane'"/> Send <t t-esc="state.mediaItems.length"/> image<t t-if="state.mediaItems.length !== 1">s</t></button></div>
                                 </t>
                                 <t t-else="">
                                     <div class="o_wa_media_selected">

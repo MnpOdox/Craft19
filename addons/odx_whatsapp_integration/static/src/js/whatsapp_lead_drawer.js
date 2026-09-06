@@ -6,9 +6,11 @@ import {
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
+import { optimizeWhatsAppImage } from "./image_optimizer";
 
 const MAX_SESSION_MEDIA = 16 * 1024 * 1024;
 const MAX_DOCUMENT = 50 * 1024 * 1024;
+const MAX_SOURCE_IMAGE = 50 * 1024 * 1024;
 const VOICE_FORMATS = [
     { mime: "audio/mp4;codecs=mp4a.40.2", apiMime: "audio/mp4", extension: "m4a" },
     { mime: "audio/mp4", apiMime: "audio/mp4", extension: "m4a" },
@@ -33,6 +35,7 @@ export class WhatsAppLeadDrawer extends Component {
             templateId: false, templateValues: [],
             mediaType: false, mediaName: "", mediaMime: "", mediaBase64: "", mediaPreview: "", caption: "",
             mediaItems: [],
+            preparingMedia: false,
             question: "", buttons: [""],
             recording: false, recordingPaused: false, recordingSeconds: 0, voiceBase64: "", voicePreview: "",
         });
@@ -225,6 +228,10 @@ export class WhatsAppLeadDrawer extends Component {
         if (!files.length) return;
         const type = this.pendingMediaType || "document";
         if (type === "image") {
+            if (this.state.preparingMedia) return;
+            this.state.mode = "media";
+            this.state.preparingMedia = true;
+            try {
             if (this.state.mediaBase64) this.clearMedia(false);
             const available = 10 - this.state.mediaItems.length;
             if (available <= 0) {
@@ -240,20 +247,40 @@ export class WhatsAppLeadDrawer extends Component {
                 this.notification.add("WhatsApp images must be JPG, PNG, or WebP.", { type: "warning" });
                 return;
             }
-            if (selected.some((file) => file.size > MAX_SESSION_MEDIA)) {
-                this.notification.add("Images are limited to 16 MB each.", { type: "danger" });
+            if (selected.some((file) => file.size > MAX_SOURCE_IMAGE)) {
+                this.notification.add("Original photos over 50 MB cannot be optimized safely.", { type: "danger" });
                 return;
             }
-            for (const [index, file] of selected.entries()) {
+            const optimizedImages = [];
+            for (const original of selected) {
+                optimizedImages.push(await optimizeWhatsAppImage(original));
+            }
+            if (optimizedImages.some((result) => result.file.size > MAX_SESSION_MEDIA)) {
+                this.notification.add("One photo is still over 16 MB after optimization.", { type: "danger" });
+                return;
+            }
+            let savedBytes = 0;
+            for (const [index, result] of optimizedImages.entries()) {
+                const file = result.file;
+                savedBytes += result.originalSize - file.size;
                 this.state.mediaItems.push({
                     id: `${Date.now()}-${index}-${file.name}`, name: file.name,
                     mime: file.type || "image/jpeg", base64: await this.blobToBase64(file),
-                    preview: URL.createObjectURL(file), caption: "",
+                    preview: URL.createObjectURL(file), caption: "", optimized: result.optimized,
+                    size: file.size,
+                });
+            }
+            if (savedBytes > 0) {
+                this.notification.add(`Photos optimized — ${this.formatBytes(savedBytes)} less to upload.`, {
+                    title: "Ready to send", type: "success",
                 });
             }
             this.state.mediaType = "image";
             this.state.mode = "media";
             return;
+            } finally {
+                this.state.preparingMedia = false;
+            }
         }
         const file = files[0];
         const maximum = type === "document" ? MAX_DOCUMENT : MAX_SESSION_MEDIA;
@@ -403,6 +430,11 @@ export class WhatsAppLeadDrawer extends Component {
             reader.onerror = reject;
             reader.readAsDataURL(blob);
         });
+    }
+
+    formatBytes(bytes) {
+        if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     }
 
     addButton() { if (this.state.buttons.length < 3) this.state.buttons.push(""); }

@@ -3,8 +3,10 @@
 import { Component, onMounted, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
+import { optimizeWhatsAppImage } from "./image_optimizer";
 
 const MAX_VOICE_SIZE = 16 * 1024 * 1024;
+const MAX_SOURCE_IMAGE = 50 * 1024 * 1024;
 const VOICE_FORMATS = [
     { mime: "audio/mp4;codecs=mp4a.40.2", apiMime: "audio/mp4", extension: "m4a" },
     { mime: "audio/mp4", apiMime: "audio/mp4", extension: "m4a" },
@@ -45,6 +47,7 @@ export class WhatsAppInbox extends Component {
             mediaCaption: "",
             mediaDragging: false,
             mediaItems: [],
+            preparingMedia: false,
             recording: false,
             recordingPaused: false,
             recordingSeconds: 0,
@@ -299,6 +302,11 @@ export class WhatsAppInbox extends Component {
     }
 
     async prepareMediaFiles(files) {
+        if (this.state.preparingMedia) {
+            return;
+        }
+        this.state.preparingMedia = true;
+        try {
         const prepared = files.map((file) => ({ file, info: this.mediaInfo(file) }));
         if (prepared.some((item) => !item.info)) {
             this.notification.add("This file type is not supported by WhatsApp. Choose a JPG, PNG, WebP, PDF, Office document, text, supported audio, MP4, or 3GP file.", { title: "Unsupported file", type: "warning" });
@@ -308,9 +316,16 @@ export class WhatsAppInbox extends Component {
             this.notification.add("Multiple selection is available for images. Send documents, audio, and video one at a time.", { title: "Select images only", type: "warning" });
             return;
         }
-        const oversized = prepared.find(({ file, info }) => file.size > (info.type === "document" ? 50 * 1024 * 1024 : 16 * 1024 * 1024));
+        const oversized = prepared.find(({ file, info }) => file.size > (
+            info.type === "document" || info.type === "image" ? MAX_SOURCE_IMAGE : 16 * 1024 * 1024
+        ));
         if (oversized) {
-            this.notification.add(oversized.info.type === "document" ? "Documents are limited to 50 MB." : "Images, audio, and video are limited to 16 MB.", { title: "File too large", type: "danger" });
+            this.notification.add(
+                oversized.info.type === "image" ? "The original photo is over 50 MB and cannot be optimized safely." :
+                oversized.info.type === "document" ? "Documents are limited to 50 MB." :
+                "Audio and video are limited to 16 MB.",
+                { title: "File too large", type: "danger" },
+            );
             return;
         }
         if (prepared.every((item) => item.info.type === "image")) {
@@ -325,10 +340,27 @@ export class WhatsAppInbox extends Component {
             if (prepared.length > available) {
                 this.notification.add(`Only the first ${available} images were added. A batch can contain up to 10 images.`, { title: "Image limit", type: "warning" });
             }
-            for (const [index, { file, info }] of prepared.slice(0, available).entries()) {
+            const optimizedImages = [];
+            for (const selected of prepared.slice(0, available)) {
+                optimizedImages.push(await optimizeWhatsAppImage(selected.file));
+            }
+            if (optimizedImages.some((result) => result.file.size > 16 * 1024 * 1024)) {
+                this.notification.add("One photo is still over 16 MB after optimization.", { title: "Photo too large", type: "danger" });
+                return;
+            }
+            let savedBytes = 0;
+            for (const [index, result] of optimizedImages.entries()) {
+                const file = result.file;
+                savedBytes += result.originalSize - file.size;
                 this.state.mediaItems.push({
-                    id: `${Date.now()}-${index}-${file.name}`, name: file.name, mime: info.mime,
+                    id: `${Date.now()}-${index}-${file.name}`, name: file.name, mime: file.type,
                     base64: await this.blobToBase64(file), preview: URL.createObjectURL(file), caption: "",
+                    optimized: result.optimized, size: file.size,
+                });
+            }
+            if (savedBytes > 0) {
+                this.notification.add(`Photos optimized — ${this.formatBytes(savedBytes)} less to upload.`, {
+                    title: "Ready to send", type: "success",
                 });
             }
             this.state.mode = "media";
@@ -343,6 +375,9 @@ export class WhatsAppInbox extends Component {
         this.state.mediaName = file.name;
         this.state.mediaPreview = URL.createObjectURL(file);
         this.state.mediaBase64 = await this.blobToBase64(file);
+        } finally {
+            this.state.preparingMedia = false;
+        }
     }
 
     mediaInfo(file) {
@@ -591,6 +626,11 @@ export class WhatsAppInbox extends Component {
     formatFileSize(base64) {
         const bytes = Math.floor((base64?.length || 0) * 0.75);
         return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    }
+
+    formatBytes(bytes) {
+        if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     }
 
     initials(name) {
