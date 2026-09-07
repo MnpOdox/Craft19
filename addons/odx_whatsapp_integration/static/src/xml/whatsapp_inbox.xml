@@ -5,7 +5,7 @@
             <aside class="o_wa_sidebar" t-att-class="state.sidebarVisible ? 'o_mobile_visible' : ''">
                 <header class="o_wa_sidebar_header">
                     <div><span class="o_wa_eyebrow">CUSTOMER MESSAGING</span><h1>WhatsApp</h1></div>
-                    <button class="o_wa_icon_button" t-on-click="() => this.loadInbox(true)" title="Refresh"><i t-att-class="state.refreshing ? 'fa fa-refresh fa-spin' : 'fa fa-refresh'"/></button>
+                    <button class="o_wa_icon_button" t-on-click="() => this.loadInbox(true, true)" title="Refresh"><i t-att-class="state.refreshing ? 'fa fa-refresh fa-spin' : 'fa fa-refresh'"/></button>
                 </header>
                 <div class="o_wa_search">
                     <i class="fa fa-search"/>
@@ -17,7 +17,7 @@
                     <button t-att-class="state.filter === 'closed' ? 'active' : ''" t-on-click="() => this.setFilter('closed')">Closed</button>
                     <button t-att-class="state.filter === 'exception' ? 'active' : ''" t-on-click="() => this.setFilter('exception')">Exceptions</button>
                 </nav>
-                <div class="o_wa_conversation_list">
+                <div class="o_wa_conversation_list" t-on-wheel="onWheelScroll">
                     <div class="o_wa_list_loading" t-if="state.loading"><i class="fa fa-circle-o-notch fa-spin"/> Loading conversations…</div>
                     <button t-foreach="state.conversations" t-as="conversation" t-key="conversation.id"
                             class="o_wa_conversation_item" t-att-class="conversation.id === state.selectedId ? 'active' : ''"
@@ -55,7 +55,7 @@
                         <span><small>ASSIGNED TO</small><strong t-esc="state.chat.owner_name"/></span>
                         <span><small>SERVICE WINDOW</small><strong t-att-class="state.chat.window_open ? 'o_open' : 'o_closed'"><i class="fa fa-clock-o"/> <t t-esc="state.chat.window_open ? 'Open for free-form replies' : 'Template required'"/></strong></span>
                     </section>
-                    <section class="o_wa_timeline" t-ref="timeline">
+                    <section class="o_wa_timeline" t-ref="timeline" t-on-wheel="onWheelScroll">
                         <div class="o_wa_secure_notice"><i class="fa fa-shield"/> This conversation is visible only to the current lead owner and WhatsApp managers.</div>
                         <div t-foreach="state.chat.messages" t-as="message" t-key="message.id" class="o_wa_message_row" t-att-class="message.direction">
                             <article class="o_wa_bubble" t-att-class="message.state === 'failed' ? 'o_failed' : ''">

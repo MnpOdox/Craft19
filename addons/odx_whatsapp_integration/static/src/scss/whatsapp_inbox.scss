@@ -71,7 +71,7 @@
     button { padding: 6px 12px; border: 1px solid #dfe5e7; border-radius: 16px; color: #66777f; background: #fff; font-size: 11px; font-weight: 650; &.active { border-color: #b8e1db; color: var(--wa-deep); background: #e7f5f2; } }
 }
 
-.o_wa_conversation_list { min-height: 0; flex: 1; overflow-y: auto; }
+.o_wa_conversation_list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior-y: contain; touch-action: pan-y; scrollbar-gutter: stable; }
 .o_wa_conversation_item {
     position: relative;
     width: 100%;
@@ -137,6 +137,9 @@
     min-height: 0;
     flex: 1;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    scrollbar-gutter: stable;
     padding: 18px clamp(18px, 5vw, 72px);
     background-color: var(--wa-bg);
     background-image: radial-gradient(rgba(95,115,104,.09) .7px, transparent .7px);

@@ -96,7 +96,7 @@ export class WhatsAppInbox extends Component {
         }
     }
 
-    async loadInbox(keepSelection = true) {
+    async loadInbox(keepSelection = true, preserveScroll = false) {
         if (this.state.refreshing) {
             return;
         }
@@ -115,7 +115,11 @@ export class WhatsAppInbox extends Component {
             }
             if (this.state.selectedId) {
                 const shouldMarkRead = !this.state.chat || previousSelectedId !== this.state.selectedId;
-                await this.loadChat(this.state.selectedId, shouldMarkRead);
+                await this.loadChat(
+                    this.state.selectedId,
+                    shouldMarkRead,
+                    preserveScroll && previousSelectedId === this.state.selectedId,
+                );
             } else {
                 this.state.chat = null;
             }
@@ -129,11 +133,16 @@ export class WhatsAppInbox extends Component {
 
     async refreshQuietly() {
         if (!this.state.sending && !this.state.chatLoading) {
-            await this.loadInbox(true);
+            await this.loadInbox(true, true);
         }
     }
 
-    async loadChat(id, markRead = true) {
+    async loadChat(id, markRead = true, preserveScroll = false) {
+        const timeline = this.timelineRef.el;
+        const scrollSnapshot = timeline ? {
+            atBottom: timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < 80,
+            scrollTop: timeline.scrollTop,
+        } : null;
         this.state.chatLoading = true;
         try {
             let chat = await this.orm.call("odx.whatsapp.conversation", "get_chat_data", [[id]]);
@@ -144,18 +153,49 @@ export class WhatsAppInbox extends Component {
                     row.unread_count = 0;
                 }
             }
+            if (preserveScroll && timeline && scrollSnapshot) {
+                scrollSnapshot.atBottom = timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight < 80;
+                scrollSnapshot.scrollTop = timeline.scrollTop;
+            }
             this.state.selectedId = id;
             this.state.chat = chat;
             if (!chat.window_open) {
                 this.state.mode = "template";
             }
             this.syncTemplateValues();
-            this.scrollToBottom();
+            if (preserveScroll && scrollSnapshot && !scrollSnapshot.atBottom) {
+                setTimeout(() => {
+                    if (this.timelineRef.el) {
+                        this.timelineRef.el.scrollTop = scrollSnapshot.scrollTop;
+                    }
+                });
+            } else {
+                this.scrollToBottom();
+            }
         } catch (error) {
             this.notifyError(error);
             await this.loadInbox(false);
         } finally {
             this.state.chatLoading = false;
+        }
+    }
+
+    onWheelScroll(event) {
+        const element = event.currentTarget;
+        if (!element || element.scrollHeight <= element.clientHeight) {
+            return;
+        }
+        let delta = event.deltaY;
+        if (event.deltaMode === 1) {
+            delta *= 20;
+        } else if (event.deltaMode === 2) {
+            delta *= element.clientHeight;
+        }
+        const nextTop = Math.max(0, Math.min(element.scrollHeight - element.clientHeight, element.scrollTop + delta));
+        if (nextTop !== element.scrollTop) {
+            event.preventDefault();
+            event.stopPropagation();
+            element.scrollTop = nextTop;
         }
     }
 
