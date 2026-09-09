@@ -132,7 +132,7 @@ class WhatsAppAccount(models.Model):
                                     "limit": 250,
                                 })
             for item in data.get("data", []):
-                template = self.env["odx.whatsapp.template"].search([
+                template = self.env["odx.whatsapp.template"].with_context(active_test=False).search([
                     ("account_id", "=", account.id), ("meta_template_id", "=", str(item["id"]))
                 ], limit=1)
                 values = self.env["odx.whatsapp.template"]._values_from_meta(item, account.id)

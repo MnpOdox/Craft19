@@ -712,6 +712,33 @@ class TestWhatsApp(TransactionCase):
         self.assertEqual(template.quality_score, "GREEN")
         self.assertEqual(len(template.button_ids), 2)
 
+    def test_template_sync_updates_archived_template_without_duplicate(self):
+        template = self.env["odx.whatsapp.template"].create({
+            "account_id": self.account.id,
+            "meta_template_id": "meta-archived-template",
+            "name": "archived_notice",
+            "language": "en_US",
+            "status": "pending",
+            "category": "utility",
+            "active": False,
+        })
+        with patch.object(type(self.account), "_api", return_value={"data": [{
+            "id": "meta-archived-template",
+            "name": "archived_notice",
+            "language": "en_US",
+            "status": "APPROVED",
+            "category": "UTILITY",
+            "components": [{"type": "BODY", "text": "Archived template"}],
+        }]}):
+            self.account.action_sync_templates()
+
+        self.assertEqual(template.status, "approved")
+        self.assertFalse(template.active)
+        self.assertEqual(self.env["odx.whatsapp.template"].with_context(active_test=False).search_count([
+            ("account_id", "=", self.account.id),
+            ("meta_template_id", "=", "meta-archived-template"),
+        ]), 1)
+
     def test_template_submission_validates_variable_examples(self):
         template = self.env["odx.whatsapp.template"].create({
             "account_id": self.account.id,
