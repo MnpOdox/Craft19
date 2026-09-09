@@ -211,6 +211,15 @@ class TestWhatsApp(TransactionCase):
                 (0, 0, {"sequence": 20, "button_type": "quick_reply", "text": "Closed"}),
             ],
         })
+        session_template = self.env["odx.whatsapp.session.template"].create({
+            "name": "Salesperson assignment %s" % suffix,
+            "account_id": self.account.id,
+            "body_text": "Editable lead {{1}}\nCustomer: {{2}}\nPhone: {{3}}\nProduct: {{4}}\nChat: {{5}}",
+            "button_ids": [
+                (0, 0, {"sequence": 10, "text": "Won"}),
+                (0, 0, {"sequence": 20, "text": "Closed"}),
+            ],
+        })
         form = self.env["odx.meta.form"].create({
             "name": "Salesperson Form %s" % suffix,
             "page_id": page.id,
@@ -218,6 +227,7 @@ class TestWhatsApp(TransactionCase):
             "team_id": self.team.id,
             "whatsapp_salesperson_account_id": self.account.id,
             "whatsapp_salesperson_template_id": template.id,
+            "whatsapp_salesperson_session_template_id": session_template.id,
             "whatsapp_salesperson_template_parameters": (
                 "{{lead_number}}\n{{contact_name}}\n{{customer_phone}}\n{{lead_name}}\n{{customer_whatsapp_link}}"
             ),
@@ -343,6 +353,7 @@ class TestWhatsApp(TransactionCase):
         self.assertEqual(second_notification.send_mode, "session")
         request = api_call.call_args.kwargs["json"]
         self.assertEqual(request["type"], "interactive")
+        self.assertIn("Editable lead", request["interactive"]["body"]["text"])
         self.assertIn("Second Customer", request["interactive"]["body"]["text"])
         self.assertEqual(
             [button["reply"]["title"] for button in request["interactive"]["action"]["buttons"]],
@@ -913,6 +924,72 @@ class TestWhatsApp(TransactionCase):
         })
         self.assertEqual(received.interactive_reply_title, "Yes")
         self.assertEqual(received.body, "Yes")
+
+    def test_reusable_quick_reply_is_available_and_sends_rendered_message(self):
+        conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
+            self.account, "+919181818181", "Quick Reply Customer"
+        )
+        conversation.last_inbound_at = fields.Datetime.now()
+        quick_reply = self.env["odx.whatsapp.session.template"].create({
+            "name": "Order update",
+            "account_id": self.account.id,
+            "body_text": "Hello {{1}}, is order {{2}} confirmed?",
+            "button_ids": [
+                (0, 0, {"sequence": 10, "text": "Yes"}),
+                (0, 0, {"sequence": 20, "text": "No"}),
+            ],
+        })
+
+        chat = conversation.with_user(conversation.owner_id).get_chat_data()
+        self.assertEqual(chat["session_templates"][0]["name"], "Order update")
+        self.assertEqual(chat["session_templates"][0]["parameter_count"], 2)
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.quick.reply"}],
+        }) as api_call:
+            result = conversation.with_user(conversation.owner_id).ui_send_session_template(
+                quick_reply.id, ["Customer", "SO001"]
+            )
+
+        payload = api_call.call_args.kwargs["json"]
+        self.assertEqual(payload["type"], "interactive")
+        self.assertEqual(payload["interactive"]["body"]["text"], "Hello Customer, is order SO001 confirmed?")
+        self.assertEqual(
+            [button["reply"]["title"] for button in payload["interactive"]["action"]["buttons"]],
+            ["Yes", "No"],
+        )
+        self.assertEqual(result["messages"][-1]["body"], "Hello Customer, is order SO001 confirmed?")
+
+    def test_reusable_quick_reply_requires_matching_parameters(self):
+        quick_reply = self.env["odx.whatsapp.session.template"].create({
+            "name": "Missing parameter",
+            "account_id": self.account.id,
+            "body_text": "Hello {{1}}",
+            "button_ids": [(0, 0, {"sequence": 10, "text": "OK"})],
+        })
+        with self.assertRaises(ValidationError):
+            quick_reply._render_body([])
+
+    def test_reusable_quick_reply_without_buttons_sends_normal_text(self):
+        conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(
+            self.account, "+919171717171", "Canned Reply Customer"
+        )
+        conversation.last_inbound_at = fields.Datetime.now()
+        quick_reply = self.env["odx.whatsapp.session.template"].create({
+            "name": "Thank you",
+            "account_id": self.account.id,
+            "body_text": "Thank you {{1}}. We will update you shortly.",
+        })
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.quick.text"}],
+        }) as api_call:
+            conversation.with_user(conversation.owner_id).ui_send_session_template(
+                quick_reply.id, ["Customer"]
+            )
+        self.assertEqual(api_call.call_args.kwargs["json"]["type"], "text")
+        self.assertEqual(
+            api_call.call_args.kwargs["json"]["text"]["body"],
+            "Thank you Customer. We will update you shortly.",
+        )
 
     def test_media_service_enforces_limits_and_reuses_upload(self):
         conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(

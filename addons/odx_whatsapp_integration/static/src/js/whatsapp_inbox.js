@@ -38,6 +38,8 @@ export class WhatsAppInbox extends Component {
             text: "",
             selectedTemplateId: false,
             templateValues: [],
+            selectedSessionTemplateId: false,
+            sessionTemplateValues: [],
             sidebarVisible: true,
             mediaType: false,
             mediaName: "",
@@ -163,6 +165,7 @@ export class WhatsAppInbox extends Component {
                 this.state.mode = "template";
             }
             this.syncTemplateValues();
+            this.syncSessionTemplateValues();
             if (preserveScroll && scrollSnapshot && !scrollSnapshot.atBottom) {
                 setTimeout(() => {
                     if (this.timelineRef.el) {
@@ -229,7 +232,7 @@ export class WhatsAppInbox extends Component {
     }
 
     setMode(mode) {
-        if ((mode === "text" || mode === "media") && !this.state.chat?.window_open) {
+        if ((mode === "text" || mode === "media" || mode === "quick") && !this.state.chat?.window_open) {
             return;
         }
         this.state.mode = mode;
@@ -252,8 +255,28 @@ export class WhatsAppInbox extends Component {
         this.state.templateValues[index] = event.target.value;
     }
 
+    onSessionTemplateChange(event) {
+        this.state.selectedSessionTemplateId = Number(event.target.value) || false;
+        this.syncSessionTemplateValues(true);
+    }
+
+    syncSessionTemplateValues(force = false) {
+        const count = this.selectedSessionTemplate?.parameter_count || 0;
+        if (force || this.state.sessionTemplateValues.length !== count) {
+            this.state.sessionTemplateValues = Array(count).fill("");
+        }
+    }
+
+    setSessionTemplateParameter(index, event) {
+        this.state.sessionTemplateValues[index] = event.target.value;
+    }
+
     get selectedTemplate() {
         return this.state.chat?.templates.find((item) => item.id === this.state.selectedTemplateId);
+    }
+
+    get selectedSessionTemplate() {
+        return this.state.chat?.session_templates.find((item) => item.id === this.state.selectedSessionTemplateId);
     }
 
     get canSend() {
@@ -262,6 +285,10 @@ export class WhatsAppInbox extends Component {
         }
         if (this.state.mode === "text") {
             return this.state.chat.window_open && Boolean(this.state.text.trim());
+        }
+        if (this.state.mode === "quick") {
+            return this.state.chat.window_open && Boolean(this.selectedSessionTemplate)
+                && this.state.sessionTemplateValues.every((value) => value.trim());
         }
         return Boolean(this.selectedTemplate) && this.state.templateValues.every((value) => value.trim());
     }
@@ -276,6 +303,11 @@ export class WhatsAppInbox extends Component {
             if (this.state.mode === "text") {
                 chat = await this.orm.call("odx.whatsapp.conversation", "ui_send_text", [
                     [this.state.selectedId], this.state.text,
+                ]);
+            } else if (this.state.mode === "quick") {
+                chat = await this.orm.call("odx.whatsapp.conversation", "ui_send_session_template", [
+                    [this.state.selectedId], this.state.selectedSessionTemplateId,
+                    [...this.state.sessionTemplateValues],
                 ]);
             } else {
                 chat = await this.orm.call("odx.whatsapp.conversation", "ui_send_template", [
@@ -669,6 +701,8 @@ export class WhatsAppInbox extends Component {
         this.state.text = "";
         this.state.selectedTemplateId = false;
         this.state.templateValues = [];
+        this.state.selectedSessionTemplateId = false;
+        this.state.sessionTemplateValues = [];
         this.clearMedia(false);
         this.discardRecording();
     }

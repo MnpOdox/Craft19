@@ -92,6 +92,30 @@
         </field>
     </record>
     <record id="view_whatsapp_event_list" model="ir.ui.view"><field name="name">odx.whatsapp.event.list</field><field name="model">odx.whatsapp.event</field><field name="arch" type="xml"><list create="0" delete="0"><field name="create_date"/><field name="account_id"/><field name="state" decoration-danger="state == 'failed'" decoration-success="state == 'done'"/><field name="retry_count"/><field name="processed_at"/><field name="error_message"/></list></field></record>
+    <record id="view_whatsapp_session_template_list" model="ir.ui.view">
+        <field name="name">odx.whatsapp.session.template.list</field>
+        <field name="model">odx.whatsapp.session.template</field>
+        <field name="arch" type="xml"><list><field name="name"/><field name="account_id"/><field name="body_text"/><field name="active"/></list></field>
+    </record>
+    <record id="view_whatsapp_session_template_form" model="ir.ui.view">
+        <field name="name">odx.whatsapp.session.template.form</field>
+        <field name="model">odx.whatsapp.session.template</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <div class="oe_title"><label for="name"/><h1><field name="name" placeholder="Lead assignment"/></h1></div>
+                    <div class="alert alert-info" role="alert">Quick replies are editable Odoo messages and require an open 24-hour service window. Use numbered variables such as {{1}} and {{2}}. Reply buttons are optional.</div>
+                    <group><field name="account_id"/><field name="active"/></group>
+                    <group string="Message"><field name="body_text" nolabel="1" placeholder="Hello {{1}}, here are the details for {{2}}."/></group>
+                    <group string="Reply Buttons (Optional)">
+                        <field name="button_ids" nolabel="1">
+                            <list editable="bottom"><field name="sequence" widget="handle"/><field name="text"/></list>
+                        </field>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
     <record id="view_whatsapp_salesperson_notification_list" model="ir.ui.view">
         <field name="name">odx.whatsapp.salesperson.notification.list</field>
         <field name="model">odx.whatsapp.salesperson.notification</field>
@@ -112,7 +136,7 @@
             <form create="0" delete="0" edit="0">
                 <header><button name="action_retry" type="object" string="Retry" class="btn-primary" invisible="state != 'failed' or action != 'pending'"/></header>
                 <sheet>
-                    <group><group><field name="lead_id"/><field name="salesperson_id"/><field name="recipient_phone"/><field name="account_id"/><field name="template_id"/></group>
+                    <group><group><field name="lead_id"/><field name="salesperson_id"/><field name="recipient_phone"/><field name="account_id"/><field name="template_id"/><field name="session_template_id"/></group>
                     <group><field name="send_mode"/><field name="state"/><field name="action"/><field name="sent_at"/><field name="delivered_at"/><field name="read_at"/><field name="action_at"/></group></group>
                     <group string="Message"><field name="rendered_body" nolabel="1"/></group>
                     <group string="Latest Salesperson Response"><field name="last_recipient_message_at"/><field name="last_recipient_message"/></group>
@@ -135,6 +159,7 @@
                         <field name="whatsapp_salesperson_notify_enabled"/>
                         <field name="whatsapp_salesperson_account_id" required="whatsapp_salesperson_notify_enabled" invisible="not whatsapp_salesperson_notify_enabled"/>
                         <field name="whatsapp_salesperson_template_id" required="whatsapp_salesperson_notify_enabled" invisible="not whatsapp_salesperson_notify_enabled"/>
+                        <field name="whatsapp_salesperson_session_template_id" required="whatsapp_salesperson_notify_enabled" invisible="not whatsapp_salesperson_notify_enabled"/>
                         <field name="whatsapp_salesperson_template_parameters" required="whatsapp_salesperson_notify_enabled" invisible="not whatsapp_salesperson_notify_enabled" placeholder="One value per line, e.g. {{lead_number}}"/>
                     </group>
                     <group invisible="not whatsapp_salesperson_notify_enabled">
@@ -174,6 +199,7 @@
     <record id="action_whatsapp_inbox" model="ir.actions.client"><field name="name">WhatsApp Inbox</field><field name="tag">odx_whatsapp_integration.Inbox</field></record>
     <record id="action_whatsapp_account" model="ir.actions.act_window"><field name="name">WhatsApp Accounts</field><field name="res_model">odx.whatsapp.account</field><field name="view_mode">list,form</field></record>
     <record id="action_whatsapp_template" model="ir.actions.act_window"><field name="name">Templates</field><field name="res_model">odx.whatsapp.template</field><field name="view_mode">list,form</field></record>
+    <record id="action_whatsapp_session_template" model="ir.actions.act_window"><field name="name">Quick Replies</field><field name="res_model">odx.whatsapp.session.template</field><field name="view_mode">list,form</field></record>
     <record id="action_whatsapp_event" model="ir.actions.act_window"><field name="name">Webhook Events</field><field name="res_model">odx.whatsapp.event</field><field name="view_mode">list,form</field></record>
     <record id="action_whatsapp_salesperson_notification" model="ir.actions.act_window"><field name="name">Salesperson Lead Notifications</field><field name="res_model">odx.whatsapp.salesperson.notification</field><field name="view_mode">list,form</field></record>
     <record id="action_whatsapp_compose" model="ir.actions.act_window"><field name="name">Send WhatsApp Message</field><field name="res_model">odx.whatsapp.compose</field><field name="view_mode">form</field><field name="target">new</field></record>

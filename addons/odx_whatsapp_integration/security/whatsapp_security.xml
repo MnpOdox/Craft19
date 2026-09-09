@@ -29,6 +29,8 @@
     </record>
     <record id="rule_whatsapp_company_account" model="ir.rule"><field name="name">WhatsApp accounts: company</field><field name="model_id" ref="model_odx_whatsapp_account"/><field name="domain_force">[('company_id', 'in', company_ids)]</field><field name="groups" eval="[(4, ref('group_whatsapp_user'))]"/></record>
     <record id="rule_whatsapp_company_template" model="ir.rule"><field name="name">WhatsApp templates: company</field><field name="model_id" ref="model_odx_whatsapp_template"/><field name="domain_force">[('company_id', 'in', company_ids)]</field><field name="groups" eval="[(4, ref('group_whatsapp_user'))]"/></record>
+    <record id="rule_whatsapp_company_session_template" model="ir.rule"><field name="name">WhatsApp quick replies: company</field><field name="model_id" ref="model_odx_whatsapp_session_template"/><field name="domain_force">[('company_id', 'in', company_ids)]</field><field name="groups" eval="[(4, ref('group_whatsapp_user'))]"/></record>
+    <record id="rule_whatsapp_company_session_template_button" model="ir.rule"><field name="name">WhatsApp quick-reply buttons: company</field><field name="model_id" ref="model_odx_whatsapp_session_template_button"/><field name="domain_force">[('template_id.company_id', 'in', company_ids)]</field><field name="groups" eval="[(4, ref('group_whatsapp_user'))]"/></record>
     <record id="rule_meta_whatsapp_followup_step_company" model="ir.rule">
         <field name="name">Meta WhatsApp follow-up steps: company</field>
         <field name="model_id" ref="model_odx_meta_whatsapp_followup_step"/>

@@ -33,6 +33,7 @@ export class WhatsAppLeadDrawer extends Component {
             open: false, loading: false, refreshing: false, sending: false, data: null,
             mode: "text", text: "", emojiOpen: false,
             templateId: false, templateValues: [],
+            sessionTemplateId: false, sessionTemplateValues: [],
             mediaType: false, mediaName: "", mediaMime: "", mediaBase64: "", mediaPreview: "", caption: "",
             mediaItems: [],
             preparingMedia: false,
@@ -64,6 +65,7 @@ export class WhatsAppLeadDrawer extends Component {
     get selectedAccountId() { return this.state.data?.selected_account_id || false; }
     get selectedConversationId() { return this.state.data?.selected_conversation_id || false; }
     get selectedTemplate() { return this.chat?.templates.find((item) => item.id === this.state.templateId); }
+    get selectedSessionTemplate() { return this.chat?.session_templates.find((item) => item.id === this.state.sessionTemplateId); }
 
     async toggle() {
         if (!this.canOpen) return;
@@ -125,6 +127,7 @@ export class WhatsAppLeadDrawer extends Component {
             }
             if (!data.chat.window_open && this.state.mode !== "template") this.state.mode = "template";
             this.syncTemplateValues();
+            this.syncSessionTemplateValues();
             if (!quiet || atBottom) this.scrollBottom();
         } catch (error) {
             this.close();
@@ -194,6 +197,22 @@ export class WhatsAppLeadDrawer extends Component {
         if (force || this.state.templateValues.length !== count) this.state.templateValues = Array(count).fill("");
     }
 
+    onSessionTemplateChange(event) {
+        this.state.sessionTemplateId = Number(event.target.value) || false;
+        this.syncSessionTemplateValues(true);
+    }
+
+    syncSessionTemplateValues(force = false) {
+        const count = this.selectedSessionTemplate?.parameter_count || 0;
+        if (force || this.state.sessionTemplateValues.length !== count) {
+            this.state.sessionTemplateValues = Array(count).fill("");
+        }
+    }
+
+    setSessionTemplateValue(index, event) {
+        this.state.sessionTemplateValues[index] = event.target.value;
+    }
+
     async sendText() {
         const body = this.state.text.trim();
         if (!body || !this.chat?.window_open) return;
@@ -218,6 +237,16 @@ export class WhatsAppLeadDrawer extends Component {
         ]);
         this.state.question = "";
         this.state.buttons = [""];
+    }
+
+    async sendSessionTemplate() {
+        if (!this.selectedSessionTemplate || this.state.sessionTemplateValues.some((value) => !value.trim())) return;
+        await this.sendRpc("whatsapp_panel_send_session_template", [
+            this.selectedAccountId, this.selectedConversationId,
+            this.state.sessionTemplateId, [...this.state.sessionTemplateValues],
+        ]);
+        this.state.sessionTemplateId = false;
+        this.state.sessionTemplateValues = [];
     }
 
     async retryMessage(message) {
@@ -472,7 +501,7 @@ export class WhatsAppLeadDrawer extends Component {
     initials(name) { return (name || "WA").split(/\s+/).slice(0, 2).map((part) => part[0]).join("").toUpperCase(); }
     statusTicks(state) { return state === "read" || state === "delivered" ? "✓✓" : state === "failed" ? "!" : "✓"; }
     scrollBottom() { setTimeout(() => { const el = this.timelineRef.el; if (el) el.scrollTop = el.scrollHeight; }); }
-    resetComposer() { this.state.mode = "text"; this.state.text = ""; this.state.templateId = false; this.state.templateValues = []; this.state.question = ""; this.state.buttons = [""]; this.clearMedia(); this.discardRecording(); }
+    resetComposer() { this.state.mode = "text"; this.state.text = ""; this.state.templateId = false; this.state.templateValues = []; this.state.sessionTemplateId = false; this.state.sessionTemplateValues = []; this.state.question = ""; this.state.buttons = [""]; this.clearMedia(); this.discardRecording(); }
     notifyError(error) { this.notification.add(error?.data?.message || error?.message || "WhatsApp operation failed.", { type: "danger", sticky: true }); }
 }
 

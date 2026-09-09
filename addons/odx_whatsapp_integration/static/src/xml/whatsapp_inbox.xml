@@ -77,6 +77,7 @@
                         <t t-else="">
                             <div class="o_wa_compose_modes">
                                 <button t-att-class="state.mode === 'text' ? 'active' : ''" t-att-disabled="!state.chat.window_open" t-on-click="() => this.setMode('text')"><i class="fa fa-comment-o"/> Message</button>
+                                <button t-att-class="state.mode === 'quick' ? 'active' : ''" t-att-disabled="!state.chat.window_open" t-on-click="() => this.setMode('quick')"><i class="fa fa-bolt"/> Quick Reply</button>
                                 <button t-att-class="state.mode === 'template' ? 'active' : ''" t-on-click="() => this.setMode('template')"><i class="fa fa-file-text-o"/> Template</button>
                                 <button t-att-class="state.mode === 'media' ? 'active' : ''" t-att-disabled="!state.chat.window_open" t-on-click="openMediaPicker"><i class="fa fa-paperclip"/> Media</button>
                                 <input t-ref="mediaInput" class="d-none" type="file" multiple="multiple" accept=".jpg,.jpeg,.png,.webp,.aac,.m4a,.mp3,.amr,.ogg,.opus,.mp4,.3gp,.pdf,.txt,.doc,.docx,.xls,.xlsx,.ppt,.pptx" t-on-change="onMediaFileChange"/>
@@ -113,6 +114,22 @@
                                     <label t-foreach="state.templateValues" t-as="parameter" t-key="parameter_index"><span>Variable {{<t t-esc="parameter_index + 1"/>}}</span><input type="text" t-att-value="parameter" t-on-input="(ev) => this.setTemplateParameter(parameter_index, ev)"/></label>
                                 </div>
                                 <button class="o_wa_template_send" t-att-disabled="!canSend" t-on-click="send"><i t-att-class="state.sending ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-paper-plane'"/> Send Template</button>
+                            </div>
+                            <div class="o_wa_template_composer o_wa_quick_reply_composer" t-if="state.mode === 'quick'">
+                                <div class="o_wa_template_controls">
+                                    <select t-on-change="onSessionTemplateChange" t-att-value="state.selectedSessionTemplateId || ''">
+                                        <option value="">Select a quick reply…</option>
+                                        <option t-foreach="state.chat.session_templates" t-as="template" t-key="template.id" t-att-value="template.id" t-esc="template.name"/>
+                                    </select>
+                                    <span class="o_wa_category">24H SESSION</span>
+                                </div>
+                                <div class="o_wa_template_preview" t-if="selectedSessionTemplate">
+                                    <i class="fa fa-quote-left"/><div><p t-esc="selectedSessionTemplate.body"/><span class="o_wa_quick_button" t-foreach="selectedSessionTemplate.buttons" t-as="button" t-key="button_index" t-esc="button"/></div>
+                                </div>
+                                <div class="o_wa_template_parameters" t-if="state.sessionTemplateValues.length">
+                                    <label t-foreach="state.sessionTemplateValues" t-as="parameter" t-key="parameter_index"><span>Variable {{<t t-esc="parameter_index + 1"/>}}</span><input type="text" t-att-value="parameter" t-on-input="(ev) => this.setSessionTemplateParameter(parameter_index, ev)"/></label>
+                                </div>
+                                <button class="o_wa_template_send" t-att-disabled="!canSend" t-on-click="send"><i t-att-class="state.sending ? 'fa fa-circle-o-notch fa-spin' : 'fa fa-paper-plane'"/> Send Quick Reply</button>
                             </div>
                             <div class="o_wa_inline_media" t-if="state.mode === 'media'">
                                 <div t-if="state.preparingMedia" class="alert alert-info py-2 mb-2"><i class="fa fa-circle-o-notch fa-spin"/> Optimizing photos for faster upload…</div>

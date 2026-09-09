@@ -94,9 +94,17 @@
                             </t>
                         </div>
                         <div t-if="state.mode === 'interactive'" class="o_wa_interactive_composer">
-                            <textarea rows="2" maxlength="1024" placeholder="Message or question" t-model="state.question"/>
-                            <label t-foreach="state.buttons" t-as="button" t-key="button_index"><span t-esc="button_index + 1"/><input maxlength="20" placeholder="Quick reply label" t-att-value="button" t-on-input="(ev) => this.setButton(button_index, ev)"/><button t-if="state.buttons.length > 1" t-on-click="() => this.removeButton(button_index)"><i class="fa fa-times"/></button></label>
-                            <div><button t-if="state.buttons.length &lt; 3" t-on-click="addButton"><i class="fa fa-plus"/> Add reply</button><button class="o_wa_primary" t-att-disabled="!state.question.trim() || !state.buttons.some((button) => button.trim()) || state.sending" t-on-click="sendInteractive"><i class="fa fa-paper-plane"/> Send question</button></div>
+                            <select t-on-change="onSessionTemplateChange" t-att-value="state.sessionTemplateId || ''"><option value="">Custom quick answer…</option><option t-foreach="chat.session_templates" t-as="template" t-key="template.id" t-att-value="template.id" t-esc="template.name"/></select>
+                            <t t-if="selectedSessionTemplate">
+                                <div class="o_wa_drawer_preview"><small>EDITABLE QUICK REPLY · 24H SESSION</small><p t-esc="selectedSessionTemplate.body"/><span t-foreach="selectedSessionTemplate.buttons" t-as="button" t-key="button_index" t-esc="button"/></div>
+                                <input t-foreach="state.sessionTemplateValues" t-as="value" t-key="value_index" type="text" t-att-placeholder="'Variable {{' + (value_index + 1) + '}}'" t-att-value="value" t-on-input="(ev) => this.setSessionTemplateValue(value_index, ev)"/>
+                                <button class="o_wa_primary" t-att-disabled="state.sessionTemplateValues.some((value) => !value.trim()) || state.sending" t-on-click="sendSessionTemplate"><i class="fa fa-paper-plane"/> Send quick reply</button>
+                            </t>
+                            <t t-else="">
+                                <textarea rows="2" maxlength="1024" placeholder="Message or question" t-model="state.question"/>
+                                <label t-foreach="state.buttons" t-as="button" t-key="button_index"><span t-esc="button_index + 1"/><input maxlength="20" placeholder="Quick reply label" t-att-value="button" t-on-input="(ev) => this.setButton(button_index, ev)"/><button t-if="state.buttons.length > 1" t-on-click="() => this.removeButton(button_index)"><i class="fa fa-times"/></button></label>
+                                <div><button t-if="state.buttons.length &lt; 3" t-on-click="addButton"><i class="fa fa-plus"/> Add reply</button><button class="o_wa_primary" t-att-disabled="!state.question.trim() || !state.buttons.some((button) => button.trim()) || state.sending" t-on-click="sendInteractive"><i class="fa fa-paper-plane"/> Send question</button></div>
+                            </t>
                         </div>
                     </t>
                 </section>

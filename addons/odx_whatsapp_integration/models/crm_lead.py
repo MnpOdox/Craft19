@@ -341,6 +341,9 @@ class CrmLead(models.Model):
             "templates": self.env["odx.whatsapp.template"].search([
                 ("account_id", "=", selected_account.id), ("status", "=", "approved"), ("active", "=", True),
             ], order="name, language")._panel_data() if selected_account else [],
+            "session_templates": self.env["odx.whatsapp.session.template"].search([
+                ("account_id", "=", selected_account.id), ("active", "=", True),
+            ], order="name")._panel_data() if selected_account else [],
         }
         return {
             "lead_id": self.id,
@@ -406,6 +409,14 @@ class CrmLead(models.Model):
     def whatsapp_panel_send_interactive(self, account_id, conversation_id, body, buttons):
         conversation = self._panel_conversation(account_id, conversation_id)
         conversation.send_interactive(body, buttons)
+        return self.get_whatsapp_panel_data(conversation.id, account_id)
+
+    def whatsapp_panel_send_session_template(
+        self, account_id, conversation_id, template_id, parameters=None,
+    ):
+        conversation = self._panel_conversation(account_id, conversation_id)
+        template = self.env["odx.whatsapp.session.template"].browse(int(template_id)).exists()
+        conversation.send_session_template(template, parameters or [])
         return self.get_whatsapp_panel_data(conversation.id, account_id)
 
     def whatsapp_panel_retry_message(self, conversation_id, message_id):

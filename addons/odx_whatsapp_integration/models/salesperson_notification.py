@@ -26,6 +26,9 @@ class WhatsAppSalespersonNotification(models.Model):
     salesperson_id = fields.Many2one("res.users", required=True, ondelete="restrict", index=True)
     recipient_phone = fields.Char(required=True, index=True)
     template_id = fields.Many2one("odx.whatsapp.template", required=True, ondelete="restrict")
+    session_template_id = fields.Many2one(
+        "odx.whatsapp.session.template", required=True, ondelete="restrict",
+    )
     template_parameters_json = fields.Text(readonly=True)
     rendered_body = fields.Text(readonly=True)
     action_token = fields.Char(required=True, copy=False, groups="base.group_system")
@@ -105,9 +108,10 @@ class WhatsAppSalespersonNotification(models.Model):
 
     def _session_payload(self):
         self.ensure_one()
+        labels = self.session_template_id._button_labels()
         buttons = [
-            {"type": "reply", "reply": {"id": self._button_id("won"), "title": "Won"}},
-            {"type": "reply", "reply": {"id": self._button_id("closed"), "title": "Closed"}},
+            {"type": "reply", "reply": {"id": self._button_id(action), "title": label}}
+            for action, label in zip(("won", "closed"), labels)
         ]
         return {
             "messaging_product": "whatsapp",
@@ -201,6 +205,7 @@ class WhatsAppSalespersonNotification(models.Model):
             return self.browse()
         account = form.whatsapp_salesperson_account_id
         template = form.whatsapp_salesperson_template_id
+        session_template = form.whatsapp_salesperson_session_template_id
         salesperson = lead.user_id
         if not salesperson:
             lead.message_post(body=_("WhatsApp salesperson notification was skipped because the lead is unassigned."))
@@ -220,8 +225,9 @@ class WhatsAppSalespersonNotification(models.Model):
             "salesperson_id": salesperson.id,
             "recipient_phone": recipient_phone or "missing",
             "template_id": template.id,
+            "session_template_id": session_template.id,
             "template_parameters_json": json.dumps(parameters),
-            "rendered_body": template._render_body(parameters),
+            "rendered_body": session_template._render_body(parameters),
             "action_token": secrets.token_urlsafe(18),
         })
         if not is_valid_whatsapp_phone(recipient_phone):

@@ -431,6 +431,98 @@ class WhatsAppTemplateButton(models.Model):
         return {"type": "PHONE_NUMBER", "text": self.text, "phone_number": normalize_phone(self.phone_number)}
 
 
+class WhatsAppSessionTemplate(models.Model):
+    _name = "odx.whatsapp.session.template"
+    _description = "WhatsApp Session Message / Quick Reply"
+    _order = "name, id"
+
+    name = fields.Char(required=True)
+    account_id = fields.Many2one("odx.whatsapp.account", required=True, ondelete="cascade", index=True)
+    company_id = fields.Many2one(related="account_id.company_id", store=True, index=True)
+    body_text = fields.Text(
+        required=True,
+        help="Reusable session message. Use sequential variables such as {{1}}, {{2}}.",
+    )
+    button_ids = fields.One2many(
+        "odx.whatsapp.session.template.button", "template_id", string="Reply Buttons", copy=True,
+    )
+    active = fields.Boolean(default=True)
+
+    _name_unique = models.Constraint(
+        "UNIQUE(account_id, name)", "A quick-reply template with this name already exists for the account."
+    )
+
+    @api.constrains("body_text", "button_ids")
+    def _check_content(self):
+        for template in self:
+            if not (template.body_text or "").strip():
+                raise ValidationError(_("Enter the quick-reply message."))
+            if len(template.body_text) > 1024:
+                raise ValidationError(_("A WhatsApp session message cannot exceed 1024 characters."))
+            numbers = sorted(set(WhatsAppTemplate._placeholder_numbers(template.body_text)))
+            if numbers and numbers != list(range(1, max(numbers) + 1)):
+                raise ValidationError(_("Quick-reply variables must be sequential, starting with {{1}}."))
+            if len(template.button_ids) > 3:
+                raise ValidationError(_("A quick reply can contain at most three reply buttons."))
+            labels = [button.text.strip().lower() for button in template.button_ids]
+            if len(labels) != len(set(labels)):
+                raise ValidationError(_("Quick-reply button labels must be unique."))
+
+    def _parameter_count(self):
+        self.ensure_one()
+        return max(WhatsAppTemplate._placeholder_numbers(self.body_text), default=0)
+
+    def _render_body(self, parameters=None):
+        self.ensure_one()
+        parameters = parameters or []
+        if len(parameters) != self._parameter_count():
+            raise ValidationError(_(
+                "Quick reply %(template)s requires %(expected)s variable value(s).",
+                template=self.display_name, expected=self._parameter_count(),
+            ))
+        body = self.body_text or ""
+        for index, value in enumerate(parameters, start=1):
+            body = body.replace("{{%s}}" % index, str(value))
+        return body
+
+    def _button_labels(self):
+        self.ensure_one()
+        return self.button_ids.sorted(key=lambda button: (button.sequence, button.id)).mapped("text")
+
+    def _panel_data(self):
+        return [{
+            "id": template.id,
+            "name": template.name,
+            "body": template.body_text,
+            "buttons": template._button_labels(),
+            "parameter_count": template._parameter_count(),
+        } for template in self]
+
+
+class WhatsAppSessionTemplateButton(models.Model):
+    _name = "odx.whatsapp.session.template.button"
+    _description = "WhatsApp Session Template Reply Button"
+    _order = "sequence, id"
+
+    template_id = fields.Many2one(
+        "odx.whatsapp.session.template", required=True, ondelete="cascade", index=True,
+    )
+    sequence = fields.Integer(default=10)
+    text = fields.Char(required=True)
+
+    @api.constrains("text")
+    def _check_text(self):
+        for button in self:
+            if not (button.text or "").strip() or len(button.text) > 20:
+                raise ValidationError(_("Reply-button text is required and cannot exceed 20 characters."))
+            siblings = button.template_id.button_ids
+            if len(siblings) > 3:
+                raise ValidationError(_("A quick reply can contain at most three reply buttons."))
+            labels = [item.text.strip().lower() for item in siblings]
+            if len(labels) != len(set(labels)):
+                raise ValidationError(_("Quick-reply button labels must be unique."))
+
+
 class WhatsAppConversation(models.Model):
     _name = "odx.whatsapp.conversation"
     _description = "Private WhatsApp Conversation"
@@ -510,6 +602,9 @@ class WhatsAppConversation(models.Model):
             ("account_id", "=", self.account_id.id), ("status", "=", "approved"), ("active", "=", True),
         ], order="name, language")
         template_data = templates._panel_data()
+        session_templates = self.env["odx.whatsapp.session.template"].search([
+            ("account_id", "=", self.account_id.id), ("active", "=", True),
+        ], order="name")
         now = fields.Datetime.now()
         return {
             "id": self.id,
@@ -526,6 +621,7 @@ class WhatsAppConversation(models.Model):
             "last_inbound_at": self._ui_datetime(self.last_inbound_at),
             "window_open": bool(self.last_inbound_at and self.last_inbound_at >= now - timedelta(hours=24)),
             "templates": template_data,
+            "session_templates": session_templates._panel_data(),
             "has_older": has_older,
             "oldest_message_id": messages[0].id if messages else False,
             "messages": [{
@@ -565,6 +661,20 @@ class WhatsAppConversation(models.Model):
         template = self.env["odx.whatsapp.template"].browse(int(template_id)).exists()
         self.send_template(template, parameters or [])
         return self.get_chat_data()
+
+    def ui_send_session_template(self, template_id, parameters=None):
+        template = self.env["odx.whatsapp.session.template"].browse(int(template_id)).exists()
+        self.send_session_template(template, parameters or [])
+        return self.get_chat_data()
+
+    def send_session_template(self, template, parameters=None):
+        self.ensure_one()
+        self._assert_access()
+        if not template or not template.active or template.account_id != self.account_id:
+            raise ValidationError(_("Select an active quick reply for this WhatsApp account."))
+        body = template._render_body(parameters or [])
+        labels = template._button_labels()
+        return self.send_interactive(body, labels) if labels else self.send_text(body)
 
     def ui_send_media(self, media_type, attachment, filename=False, mimetype=False, caption=False):
         self.send_media(media_type, attachment, filename, mimetype, caption)

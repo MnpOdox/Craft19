@@ -109,6 +109,12 @@ class MetaForm(models.Model):
         groups="odx_whatsapp_integration.group_whatsapp_manager",
         domain="[('account_id', '=', whatsapp_salesperson_account_id), ('status', '=', 'approved'), ('active', '=', True)]",
     )
+    whatsapp_salesperson_session_template_id = fields.Many2one(
+        "odx.whatsapp.session.template", string="Open-Window Quick Reply",
+        groups="odx_whatsapp_integration.group_whatsapp_manager",
+        domain="[('account_id', '=', whatsapp_salesperson_account_id), ('active', '=', True)]",
+        help="Editable Odoo quick reply used when the salesperson's 24-hour service window is open.",
+    )
     whatsapp_salesperson_template_parameters = fields.Text(
         string="Salesperson Template Variable Values",
         groups="odx_whatsapp_integration.group_whatsapp_manager",
@@ -186,6 +192,8 @@ class MetaForm(models.Model):
     def _onchange_whatsapp_salesperson_account_id(self):
         if self.whatsapp_salesperson_template_id.account_id != self.whatsapp_salesperson_account_id:
             self.whatsapp_salesperson_template_id = False
+        if self.whatsapp_salesperson_session_template_id.account_id != self.whatsapp_salesperson_account_id:
+            self.whatsapp_salesperson_session_template_id = False
 
     @api.constrains(
         "whatsapp_auto_send_enabled", "whatsapp_auto_account_id",
@@ -197,6 +205,7 @@ class MetaForm(models.Model):
     @api.constrains(
         "whatsapp_auto_send_enabled", "whatsapp_salesperson_notify_enabled",
         "whatsapp_salesperson_account_id", "whatsapp_salesperson_template_id",
+        "whatsapp_salesperson_session_template_id",
         "whatsapp_salesperson_template_parameters",
     )
     def _check_whatsapp_workflow(self):
@@ -209,22 +218,34 @@ class MetaForm(models.Model):
                 continue
             account = form.whatsapp_salesperson_account_id
             template = form.whatsapp_salesperson_template_id
+            session_template = form.whatsapp_salesperson_session_template_id
             if not account or not account.active or account.company_id != form.company_id:
                 raise ValidationError(_("Select an active WhatsApp business number for salesperson notifications."))
             if not template or template.account_id != account or template.status != "approved" or not template.active:
                 raise ValidationError(_("Select an active, Meta-approved salesperson assignment template."))
+            if not session_template or session_template.account_id != account or not session_template.active:
+                raise ValidationError(_("Select an active open-window quick reply for salesperson notifications."))
             quick_replies = template.button_ids.sorted(key=lambda button: (button.sequence, button.id))
             if len(quick_replies) != 2 or any(button.button_type != "quick_reply" for button in quick_replies):
                 raise ValidationError(_("The salesperson assignment template must have exactly two quick-reply buttons: Won and Closed."))
             labels = [button.text.strip().lower() for button in quick_replies]
             if labels != ["won", "closed"]:
                 raise ValidationError(_("The salesperson assignment template buttons must be ordered as Won, then Closed."))
+            session_labels = [label.strip().lower() for label in session_template._button_labels()]
+            if session_labels != ["won", "closed"]:
+                raise ValidationError(_("The open-window quick reply buttons must be ordered as Won, then Closed."))
             expected = template._panel_data()[0]["parameter_count"]
             actual = len(form._configured_salesperson_notification_parameters())
             if actual != expected:
                 raise ValidationError(_(
                     "Template %(template)s requires %(expected)s body-variable value(s); %(actual)s were configured.",
                     template=template.display_name, expected=expected, actual=actual,
+                ))
+            session_expected = session_template._parameter_count()
+            if actual != session_expected:
+                raise ValidationError(_(
+                    "Quick reply %(template)s requires %(expected)s variable value(s); %(actual)s were configured.",
+                    template=session_template.display_name, expected=session_expected, actual=actual,
                 ))
 
     def _configured_salesperson_notification_parameters(self):
