@@ -1018,6 +1018,10 @@ class TestWhatsApp(TransactionCase):
             )
         with self.assertRaises(ValidationError):
             conversation.with_user(conversation.owner_id).send_media(
+                "image", "aGVsbG8=", "photo.webp", "image/webp"
+            )
+        with self.assertRaises(ValidationError):
+            conversation.with_user(conversation.owner_id).send_media(
                 "image", "A" * (23 * 1024 * 1024), "large.png", "image/png"
             )
 

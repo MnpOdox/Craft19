@@ -990,7 +990,7 @@ class WhatsAppConversation(models.Model):
         if not detected_mimetype or detected_mimetype == "application/octet-stream":
             detected_mimetype = (mimetypes.guess_type(filename or "")[0] or "").lower()
         allowed = {
-            "image": {"image/jpeg", "image/png", "image/webp"},
+            "image": {"image/jpeg", "image/png"},
             "audio": {"audio/aac", "audio/mp4", "audio/mpeg", "audio/amr", "audio/ogg", "audio/opus"},
             "video": {"video/mp4", "video/3gpp"},
             "document": {

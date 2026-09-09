@@ -3,11 +3,10 @@
 const OPTIMIZE_ABOVE = 750 * 1024;
 const MAX_EDGE = 1600;
 const JPEG_QUALITY = 0.82;
-const WEBP_QUALITY = 0.84;
 
 function optimizedFilename(filename, mimetype) {
     const stem = (filename || "whatsapp-image").replace(/\.[^.]+$/, "");
-    const extension = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[mimetype] || "jpg";
+    const extension = { "image/jpeg": "jpg", "image/png": "png" }[mimetype] || "jpg";
     return `${stem}.${extension}`;
 }
 
@@ -46,18 +45,19 @@ export async function optimizeWhatsAppImage(file) {
         const width = image.width || image.naturalWidth;
         const height = image.height || image.naturalHeight;
         const scale = Math.min(1, MAX_EDGE / Math.max(width, height));
-        if (file.size <= OPTIMIZE_ABOVE && scale === 1) {
+        const mustConvert = file.type === "image/webp";
+        if (!mustConvert && file.size <= OPTIMIZE_ABOVE && scale === 1) {
             return { file, optimized: false, originalSize: file.size };
         }
         const canvas = document.createElement("canvas");
         canvas.width = Math.max(1, Math.round(width * scale));
         canvas.height = Math.max(1, Math.round(height * scale));
-        const context = canvas.getContext("2d", { alpha: file.type !== "image/jpeg" });
+        const context = canvas.getContext("2d", { alpha: false });
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
         context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        const outputType = file.type === "image/jpeg" ? "image/jpeg" : "image/webp";
-        const quality = outputType === "image/jpeg" ? JPEG_QUALITY : WEBP_QUALITY;
-        const blob = await canvasBlob(canvas, outputType, quality);
-        if (!blob || blob.size >= file.size) {
+        const blob = await canvasBlob(canvas, "image/jpeg", JPEG_QUALITY);
+        if (!blob || (!mustConvert && blob.size >= file.size)) {
             return { file, optimized: false, originalSize: file.size };
         }
         return {
