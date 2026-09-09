@@ -35,4 +35,20 @@
         <field name="domain_force">[('company_id', 'in', company_ids)]</field>
         <field name="groups" eval="[(4, ref('group_whatsapp_manager'))]"/>
     </record>
+    <record id="rule_whatsapp_salesperson_notification_owner" model="ir.rule">
+        <field name="name">WhatsApp lead notification: assigned salesperson only</field>
+        <field name="model_id" ref="model_odx_whatsapp_salesperson_notification"/>
+        <field name="domain_force">[('salesperson_id', '=', user.id), ('lead_id.user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_whatsapp_user'))]"/>
+        <field name="perm_read" eval="True"/><field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/><field name="perm_unlink" eval="False"/>
+    </record>
+    <record id="rule_whatsapp_salesperson_notification_manager" model="ir.rule">
+        <field name="name">WhatsApp lead notification: managers all</field>
+        <field name="model_id" ref="model_odx_whatsapp_salesperson_notification"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+        <field name="groups" eval="[(4, ref('group_whatsapp_manager'))]"/>
+        <field name="perm_read" eval="True"/><field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/><field name="perm_unlink" eval="False"/>
+    </record>
 </odoo>

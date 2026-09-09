@@ -1136,9 +1136,17 @@ class WhatsAppEvent(models.Model):
                             continue
                         contacts = {item.get("wa_id"): item.get("profile", {}).get("name") for item in value.get("contacts", [])}
                         for message in value.get("messages", []):
-                            self.env["odx.whatsapp.message"]._ingest_message(event.account_id, message, contacts.get(message.get("from")))
+                            handled = self.env["odx.whatsapp.salesperson.notification"].ingest_salesperson_message(
+                                event.account_id, message
+                            )
+                            if not handled:
+                                self.env["odx.whatsapp.message"]._ingest_message(
+                                    event.account_id, message, contacts.get(message.get("from"))
+                                )
                         for status in value.get("statuses", []):
-                            self.env["odx.whatsapp.message"]._apply_status(status)
+                            message = self.env["odx.whatsapp.message"]._apply_status(status)
+                            if not message:
+                                self.env["odx.whatsapp.salesperson.notification"].apply_status(status)
                 event.write({"state": "done", "processed_at": fields.Datetime.now(), "error_message": False})
             except Exception as exc:
                 count = event.retry_count + 1

@@ -6,4 +6,5 @@
     <menuitem id="menu_whatsapp_config" name="Configuration" parent="menu_whatsapp_root" sequence="90" groups="odx_whatsapp_integration.group_whatsapp_manager"/>
     <menuitem id="menu_whatsapp_accounts" name="Accounts" parent="menu_whatsapp_config" action="action_whatsapp_account"/>
     <menuitem id="menu_whatsapp_events" name="Webhook Events" parent="menu_whatsapp_config" action="action_whatsapp_event" sequence="20"/>
+    <menuitem id="menu_whatsapp_salesperson_notifications" name="Lead Notifications" parent="menu_whatsapp_config" action="action_whatsapp_salesperson_notification" sequence="30"/>
 </odoo>

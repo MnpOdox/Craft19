@@ -25,6 +25,9 @@ class CrmLead(models.Model):
 
     whatsapp_phone = fields.Char(compute="_compute_whatsapp", store=True, index=True)
     whatsapp_conversation_ids = fields.One2many("odx.whatsapp.conversation", "lead_id")
+    whatsapp_salesperson_notification_ids = fields.One2many(
+        "odx.whatsapp.salesperson.notification", "lead_id", string="Salesperson WhatsApp Notifications",
+    )
     whatsapp_conversation_count = fields.Integer(compute="_compute_whatsapp_count")
     whatsapp_last_message_at = fields.Datetime(compute="_compute_whatsapp", store=True)
     whatsapp_can_access = fields.Boolean(compute="_compute_whatsapp_can_access")

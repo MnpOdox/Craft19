@@ -1,6 +1,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
+from .crm_lead import normalize_phone
+
 
 class MetaWhatsAppFollowupStep(models.Model):
     _name = "odx.meta.whatsapp.followup.step"
@@ -92,6 +94,39 @@ class MetaWhatsAppFollowupStep(models.Model):
 class MetaForm(models.Model):
     _inherit = "odx.meta.form"
 
+    whatsapp_salesperson_notify_enabled = fields.Boolean(
+        string="Notify Assigned Salesperson on WhatsApp",
+        groups="odx_whatsapp_integration.group_whatsapp_manager",
+        help="Send this Meta lead to the assigned salesperson's personal WhatsApp instead of messaging the customer.",
+    )
+    whatsapp_salesperson_account_id = fields.Many2one(
+        "odx.whatsapp.account", string="Notification Business Number",
+        groups="odx_whatsapp_integration.group_whatsapp_manager",
+        domain="[('company_id', '=', company_id), ('active', '=', True)]",
+    )
+    whatsapp_salesperson_template_id = fields.Many2one(
+        "odx.whatsapp.template", string="Salesperson Assignment Template",
+        groups="odx_whatsapp_integration.group_whatsapp_manager",
+        domain="[('account_id', '=', whatsapp_salesperson_account_id), ('status', '=', 'approved'), ('active', '=', True)]",
+    )
+    whatsapp_salesperson_template_parameters = fields.Text(
+        string="Salesperson Template Variable Values",
+        groups="odx_whatsapp_integration.group_whatsapp_manager",
+        help=(
+            "One body-variable value per line. Supported replacements: {{lead_number}}, "
+            "{{lead_name}}, {{contact_name}}, {{customer_phone}}, {{customer_whatsapp_link}}, "
+            "{{form_name}}, {{ad_name}}, {{campaign_name}}, and {{salesperson}}."
+        ),
+    )
+    whatsapp_salesperson_last_sent_at = fields.Datetime(
+        string="Last Salesperson Notification", readonly=True, copy=False,
+        groups="odx_whatsapp_integration.group_whatsapp_manager",
+    )
+    whatsapp_salesperson_last_error = fields.Text(
+        string="Last Salesperson Notification Error", readonly=True, copy=False,
+        groups="odx_whatsapp_integration.group_whatsapp_manager",
+    )
+
     whatsapp_auto_send_enabled = fields.Boolean(
         string="Enable WhatsApp Follow-Up Automation",
         groups="odx_whatsapp_integration.group_whatsapp_manager",
@@ -137,12 +172,103 @@ class MetaForm(models.Model):
             if step.template_id.account_id != self.whatsapp_auto_account_id:
                 step.template_id = False
 
+    @api.onchange("whatsapp_salesperson_notify_enabled")
+    def _onchange_whatsapp_salesperson_notify_enabled(self):
+        if self.whatsapp_salesperson_notify_enabled:
+            self.whatsapp_auto_send_enabled = False
+
+    @api.onchange("whatsapp_auto_send_enabled")
+    def _onchange_whatsapp_auto_send_enabled(self):
+        if self.whatsapp_auto_send_enabled:
+            self.whatsapp_salesperson_notify_enabled = False
+
+    @api.onchange("whatsapp_salesperson_account_id")
+    def _onchange_whatsapp_salesperson_account_id(self):
+        if self.whatsapp_salesperson_template_id.account_id != self.whatsapp_salesperson_account_id:
+            self.whatsapp_salesperson_template_id = False
+
     @api.constrains(
         "whatsapp_auto_send_enabled", "whatsapp_auto_account_id",
         "whatsapp_followup_step_ids", "whatsapp_auto_close_hours",
     )
     def _check_whatsapp_followup_automation(self):
         self._validate_whatsapp_followup_configuration()
+
+    @api.constrains(
+        "whatsapp_auto_send_enabled", "whatsapp_salesperson_notify_enabled",
+        "whatsapp_salesperson_account_id", "whatsapp_salesperson_template_id",
+        "whatsapp_salesperson_template_parameters",
+    )
+    def _check_whatsapp_workflow(self):
+        for form in self:
+            if form.whatsapp_auto_send_enabled and form.whatsapp_salesperson_notify_enabled:
+                raise ValidationError(_(
+                    "Choose either customer follow-up automation or salesperson WhatsApp notification, not both."
+                ))
+            if not form.whatsapp_salesperson_notify_enabled:
+                continue
+            account = form.whatsapp_salesperson_account_id
+            template = form.whatsapp_salesperson_template_id
+            if not account or not account.active or account.company_id != form.company_id:
+                raise ValidationError(_("Select an active WhatsApp business number for salesperson notifications."))
+            if not template or template.account_id != account or template.status != "approved" or not template.active:
+                raise ValidationError(_("Select an active, Meta-approved salesperson assignment template."))
+            quick_replies = template.button_ids.sorted(key=lambda button: (button.sequence, button.id))
+            if len(quick_replies) != 2 or any(button.button_type != "quick_reply" for button in quick_replies):
+                raise ValidationError(_("The salesperson assignment template must have exactly two quick-reply buttons: Won and Closed."))
+            labels = [button.text.strip().lower() for button in quick_replies]
+            if labels != ["won", "closed"]:
+                raise ValidationError(_("The salesperson assignment template buttons must be ordered as Won, then Closed."))
+            expected = template._panel_data()[0]["parameter_count"]
+            actual = len(form._configured_salesperson_notification_parameters())
+            if actual != expected:
+                raise ValidationError(_(
+                    "Template %(template)s requires %(expected)s body-variable value(s); %(actual)s were configured.",
+                    template=template.display_name, expected=expected, actual=actual,
+                ))
+
+    def _configured_salesperson_notification_parameters(self):
+        self.ensure_one()
+        return [
+            value.strip()
+            for value in (self.whatsapp_salesperson_template_parameters or "").splitlines()
+            if value.strip()
+        ]
+
+    def _render_salesperson_notification_parameters(self, lead):
+        self.ensure_one()
+        customer_phone = normalize_phone(
+            lead.phone or lead.mobile or "",
+            self.whatsapp_salesperson_account_id.default_country_code,
+        )
+        replacements = {
+            "lead_number": "LEAD-%06d" % lead.id,
+            "lead_name": lead.name or "",
+            "contact_name": lead.contact_name or lead.partner_name or lead.name or "",
+            "customer_phone": "+%s" % customer_phone if customer_phone else "",
+            "customer_whatsapp_link": "https://wa.me/%s" % customer_phone if customer_phone else "",
+            "form_name": self.name or "",
+            "ad_name": lead.meta_ad_name or "",
+            "campaign_name": lead.meta_campaign_name or "",
+            "salesperson": lead.user_id.name or "",
+        }
+        rendered = []
+        for configured in self._configured_salesperson_notification_parameters():
+            value = configured
+            for key, replacement in replacements.items():
+                value = value.replace("{{%s}}" % key, replacement)
+            rendered.append(value)
+        return rendered
+
+    def _send_salesperson_notification(self, lead):
+        self.ensure_one()
+        notification = self.env["odx.whatsapp.salesperson.notification"].sudo().create_for_lead(self, lead)
+        if notification:
+            self.sudo().write({
+                "whatsapp_salesperson_last_sent_at": notification.sent_at or False,
+                "whatsapp_salesperson_last_error": notification.error_message or False,
+            })
+        return notification
 
     def _validate_whatsapp_followup_configuration(self):
         for form in self.filtered("whatsapp_auto_send_enabled"):
@@ -198,6 +324,9 @@ class MetaForm(models.Model):
         # Ad-level routing can deliberately leave an event waiting until its
         # route is configured.  In that case the Meta importer returns an
         # empty lead recordset and automation must not start yet.
-        if lead and not existed and self.whatsapp_auto_send_enabled:
-            self._start_whatsapp_followup_automation(lead)
+        if lead and not existed:
+            if self.whatsapp_salesperson_notify_enabled:
+                self._send_salesperson_notification(lead)
+            elif self.whatsapp_auto_send_enabled:
+                self._start_whatsapp_followup_automation(lead)
         return lead

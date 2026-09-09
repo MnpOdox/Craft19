@@ -29,6 +29,8 @@ class TestWhatsApp(TransactionCase):
             "name": "WhatsApp Test", "app_id": "app", "app_secret": "secret", "access_token": "token",
             "waba_id": "waba", "phone_number_id": "phone-id", "team_id": cls.team.id, "default_country_code": "91",
         })
+        cls.sellers[0].partner_id.phone = "+919900000001"
+        cls.sellers[1].partner_id.phone = "+919900000002"
 
     def test_unknown_sender_is_assigned_and_private(self):
         conversation = self.env["odx.whatsapp.conversation"]._find_or_create_inbound(self.account, "+919999999999", "Customer")
@@ -176,6 +178,181 @@ class TestWhatsApp(TransactionCase):
             "odoo_field_id": phone_field.id,
         })
         return form
+
+    def _meta_form_with_salesperson_notification(self, suffix="salesperson"):
+        meta_account = self.env["odx.meta.account"].create({
+            "name": "Meta Salesperson %s" % suffix,
+            "app_id": "meta-salesperson-%s" % suffix,
+            "app_secret": "meta-secret",
+            "access_token": "meta-token",
+        })
+        page = self.env["odx.meta.page"].create({
+            "name": "Meta Salesperson Page %s" % suffix,
+            "account_id": meta_account.id,
+            "meta_page_ref": "salesperson-page-%s" % suffix,
+        })
+        template = self.env["odx.whatsapp.template"].create({
+            "account_id": self.account.id,
+            "meta_template_id": "salesperson-template-%s" % suffix,
+            "name": "salesperson_assignment_%s" % suffix,
+            "language": "en_US",
+            "status": "approved",
+            "category": "utility",
+            "body_text": "Lead {{1}}\nCustomer: {{2}}\nPhone: {{3}}\nProduct: {{4}}\nChat: {{5}}",
+            "components_json": json.dumps([
+                {"type": "BODY", "text": "Lead {{1}}\nCustomer: {{2}}\nPhone: {{3}}\nProduct: {{4}}\nChat: {{5}}"},
+                {"type": "BUTTONS", "buttons": [
+                    {"type": "QUICK_REPLY", "text": "Won"},
+                    {"type": "QUICK_REPLY", "text": "Closed"},
+                ]},
+            ]),
+            "button_ids": [
+                (0, 0, {"sequence": 10, "button_type": "quick_reply", "text": "Won"}),
+                (0, 0, {"sequence": 20, "button_type": "quick_reply", "text": "Closed"}),
+            ],
+        })
+        form = self.env["odx.meta.form"].create({
+            "name": "Salesperson Form %s" % suffix,
+            "page_id": page.id,
+            "meta_form_ref": "salesperson-form-%s" % suffix,
+            "team_id": self.team.id,
+            "whatsapp_salesperson_account_id": self.account.id,
+            "whatsapp_salesperson_template_id": template.id,
+            "whatsapp_salesperson_template_parameters": (
+                "{{lead_number}}\n{{contact_name}}\n{{customer_phone}}\n{{lead_name}}\n{{customer_whatsapp_link}}"
+            ),
+        })
+        form.whatsapp_salesperson_notify_enabled = True
+        phone_field = self.env["ir.model.fields"]._get("crm.lead", "phone")
+        self.env["odx.meta.field.mapping"].create({
+            "form_id": form.id,
+            "meta_field": "phone_number",
+            "odoo_field_id": phone_field.id,
+        })
+        return form
+
+    def _salesperson_notification_payload(self, reference="salesperson-lead-1"):
+        return {
+            "id": reference,
+            "created_time": "2026-09-09T10:00:00+0000",
+            "field_data": [
+                {"name": "full_name", "values": ["Notification Customer"]},
+                {"name": "phone_number", "values": ["+919811223344"]},
+            ],
+        }
+
+    def test_meta_lead_notifies_salesperson_without_messaging_customer(self):
+        form = self._meta_form_with_salesperson_notification()
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.salesperson.assignment"}],
+        }) as api_call:
+            lead = form._import_payload(self._salesperson_notification_payload())
+            duplicate = form._import_payload(self._salesperson_notification_payload())
+
+        self.assertEqual(duplicate, lead)
+        self.assertEqual(api_call.call_count, 1)
+        notification = self.env["odx.whatsapp.salesperson.notification"].search([
+            ("lead_id", "=", lead.id)
+        ])
+        self.assertEqual(notification.salesperson_id, lead.user_id)
+        self.assertEqual(notification.recipient_phone, "919900000001")
+        self.assertEqual(notification.send_mode, "template")
+        request = api_call.call_args.kwargs["json"]
+        self.assertEqual(request["to"], "919900000001")
+        self.assertEqual(request["type"], "template")
+        components = request["template"]["components"]
+        self.assertEqual(components[0]["parameters"][0]["text"], "LEAD-%06d" % lead.id)
+        self.assertEqual(components[0]["parameters"][4]["text"], "https://wa.me/919811223344")
+        self.assertTrue(components[1]["parameters"][0]["payload"].endswith(":won"))
+        self.assertTrue(components[2]["parameters"][0]["payload"].endswith(":closed"))
+        self.assertFalse(self.env["odx.whatsapp.conversation"].search_count([
+            ("partner_phone", "=", "919811223344")
+        ]))
+
+    def test_salesperson_whatsapp_button_marks_correct_lead_won(self):
+        form = self._meta_form_with_salesperson_notification("won")
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.salesperson.won.assignment"}],
+        }):
+            lead = form._import_payload(self._salesperson_notification_payload("salesperson-lead-won"))
+        notification = lead.whatsapp_salesperson_notification_ids
+        handled = notification.ingest_salesperson_message(self.account, {
+            "id": "wamid.salesperson.won.reply",
+            "from": notification.recipient_phone,
+            "timestamp": "1788948000",
+            "type": "button",
+            "button": {"payload": notification._button_id("won"), "text": "Won"},
+        })
+
+        self.assertTrue(handled)
+        self.assertTrue(lead.stage_id.is_won)
+        self.assertEqual(notification.action, "won")
+        self.assertFalse(self.env["odx.whatsapp.conversation"].search_count([
+            ("partner_phone", "=", notification.recipient_phone)
+        ]))
+
+    def test_salesperson_whatsapp_closed_button_marks_lead_lost(self):
+        form = self._meta_form_with_salesperson_notification("closed")
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.salesperson.closed.assignment"}],
+        }):
+            lead = form._import_payload(self._salesperson_notification_payload("salesperson-lead-closed"))
+        notification = lead.whatsapp_salesperson_notification_ids
+        self.assertTrue(notification.ingest_salesperson_message(self.account, {
+            "id": "wamid.salesperson.closed.reply",
+            "from": notification.recipient_phone,
+            "timestamp": "1788948000",
+            "type": "interactive",
+            "interactive": {"type": "button_reply", "button_reply": {
+                "id": notification._button_id("closed"), "title": "Closed",
+            }},
+        }))
+
+        self.assertFalse(lead.active)
+        self.assertEqual(lead.lost_reason_id.name, "Closed by Salesperson")
+        self.assertEqual(notification.action, "closed")
+
+    def test_salesperson_reply_opens_session_for_later_notifications(self):
+        form = self._meta_form_with_salesperson_notification("session")
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.salesperson.first"}],
+        }):
+            first = form._import_payload(self._salesperson_notification_payload("salesperson-lead-session-1"))
+        first_notification = first.whatsapp_salesperson_notification_ids
+        self.assertTrue(first_notification.ingest_salesperson_message(self.account, {
+            "id": "wamid.salesperson.hello",
+            "from": first_notification.recipient_phone,
+            "timestamp": "1788948000",
+            "type": "text",
+            "text": {"body": "Received"},
+        }))
+        second = self.env["crm.lead"].create({
+            "name": "Second assigned lead",
+            "contact_name": "Second Customer",
+            "phone": "+919822334455",
+            "team_id": self.team.id,
+            "user_id": first.user_id.id,
+            "company_id": self.env.company.id,
+            "meta_form_id": form.id,
+        })
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.salesperson.second"}],
+        }) as api_call:
+            second_notification = form._send_salesperson_notification(second)
+
+        self.assertEqual(second_notification.send_mode, "session")
+        request = api_call.call_args.kwargs["json"]
+        self.assertEqual(request["type"], "interactive")
+        self.assertIn("Second Customer", request["interactive"]["body"]["text"])
+        self.assertEqual(
+            [button["reply"]["title"] for button in request["interactive"]["action"]["buttons"]],
+            ["Won", "Closed"],
+        )
+
+    def test_customer_and_salesperson_workflows_are_mutually_exclusive(self):
+        form = self._meta_form_with_salesperson_notification("exclusive")
+        with self.assertRaises(ValidationError):
+            form.whatsapp_auto_send_enabled = True
 
     def test_meta_form_sends_configured_template_once(self):
         form = self._meta_form_with_auto_template()

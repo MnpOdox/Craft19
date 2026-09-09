@@ -92,13 +92,57 @@
         </field>
     </record>
     <record id="view_whatsapp_event_list" model="ir.ui.view"><field name="name">odx.whatsapp.event.list</field><field name="model">odx.whatsapp.event</field><field name="arch" type="xml"><list create="0" delete="0"><field name="create_date"/><field name="account_id"/><field name="state" decoration-danger="state == 'failed'" decoration-success="state == 'done'"/><field name="retry_count"/><field name="processed_at"/><field name="error_message"/></list></field></record>
+    <record id="view_whatsapp_salesperson_notification_list" model="ir.ui.view">
+        <field name="name">odx.whatsapp.salesperson.notification.list</field>
+        <field name="model">odx.whatsapp.salesperson.notification</field>
+        <field name="arch" type="xml">
+            <list create="0" delete="0" default_order="create_date desc" decoration-danger="state == 'failed'" decoration-success="action in ('won', 'closed')">
+                <field name="create_date"/><field name="lead_id"/><field name="salesperson_id"/>
+                <field name="recipient_phone"/><field name="account_id"/><field name="send_mode"/>
+                <field name="state"/><field name="action"/><field name="action_at" optional="hide"/>
+                <field name="error_message" optional="show"/>
+                <button name="action_retry" type="object" string="Retry" invisible="state != 'failed' or action != 'pending'"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_whatsapp_salesperson_notification_form" model="ir.ui.view">
+        <field name="name">odx.whatsapp.salesperson.notification.form</field>
+        <field name="model">odx.whatsapp.salesperson.notification</field>
+        <field name="arch" type="xml">
+            <form create="0" delete="0" edit="0">
+                <header><button name="action_retry" type="object" string="Retry" class="btn-primary" invisible="state != 'failed' or action != 'pending'"/></header>
+                <sheet>
+                    <group><group><field name="lead_id"/><field name="salesperson_id"/><field name="recipient_phone"/><field name="account_id"/><field name="template_id"/></group>
+                    <group><field name="send_mode"/><field name="state"/><field name="action"/><field name="sent_at"/><field name="delivered_at"/><field name="read_at"/><field name="action_at"/></group></group>
+                    <group string="Message"><field name="rendered_body" nolabel="1"/></group>
+                    <group string="Latest Salesperson Response"><field name="last_recipient_message_at"/><field name="last_recipient_message"/></group>
+                    <field name="error_message" readonly="1" invisible="not error_message"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
     <record id="view_meta_form_whatsapp_auto_template" model="ir.ui.view">
         <field name="name">odx.meta.form.whatsapp.auto.template</field>
         <field name="model">odx.meta.form</field>
         <field name="inherit_id" ref="odx_meta_lead_integration.view_meta_form_form"/>
         <field name="arch" type="xml">
             <xpath expr="//field[@name='campaign_id']/.." position="after">
-                <group string="WhatsApp Follow-Up Automation" groups="odx_whatsapp_integration.group_whatsapp_manager">
+                <group string="WhatsApp Workflow" groups="odx_whatsapp_integration.group_whatsapp_manager">
+                    <div colspan="2" class="alert alert-info" role="alert">
+                        Choose one workflow per Meta form. Salesperson notification sends lead details to the assigned user's Phone and does not message the customer. Customer follow-up keeps the existing customer-facing sequence.
+                    </div>
+                    <group string="Notify Assigned Salesperson">
+                        <field name="whatsapp_salesperson_notify_enabled"/>
+                        <field name="whatsapp_salesperson_account_id" required="whatsapp_salesperson_notify_enabled" invisible="not whatsapp_salesperson_notify_enabled"/>
+                        <field name="whatsapp_salesperson_template_id" required="whatsapp_salesperson_notify_enabled" invisible="not whatsapp_salesperson_notify_enabled"/>
+                        <field name="whatsapp_salesperson_template_parameters" required="whatsapp_salesperson_notify_enabled" invisible="not whatsapp_salesperson_notify_enabled" placeholder="One value per line, e.g. {{lead_number}}"/>
+                    </group>
+                    <group invisible="not whatsapp_salesperson_notify_enabled">
+                        <field name="whatsapp_salesperson_last_sent_at" readonly="1"/>
+                        <field name="whatsapp_salesperson_last_error" readonly="1" invisible="not whatsapp_salesperson_last_error"/>
+                    </group>
+                </group>
+                <group string="Customer WhatsApp Follow-Up Automation" groups="odx_whatsapp_integration.group_whatsapp_manager">
                     <group>
                         <field name="whatsapp_auto_send_enabled"/>
                         <field name="whatsapp_auto_account_id" required="whatsapp_auto_send_enabled" invisible="not whatsapp_auto_send_enabled"/>
@@ -131,5 +175,6 @@
     <record id="action_whatsapp_account" model="ir.actions.act_window"><field name="name">WhatsApp Accounts</field><field name="res_model">odx.whatsapp.account</field><field name="view_mode">list,form</field></record>
     <record id="action_whatsapp_template" model="ir.actions.act_window"><field name="name">Templates</field><field name="res_model">odx.whatsapp.template</field><field name="view_mode">list,form</field></record>
     <record id="action_whatsapp_event" model="ir.actions.act_window"><field name="name">Webhook Events</field><field name="res_model">odx.whatsapp.event</field><field name="view_mode">list,form</field></record>
+    <record id="action_whatsapp_salesperson_notification" model="ir.actions.act_window"><field name="name">Salesperson Lead Notifications</field><field name="res_model">odx.whatsapp.salesperson.notification</field><field name="view_mode">list,form</field></record>
     <record id="action_whatsapp_compose" model="ir.actions.act_window"><field name="name">Send WhatsApp Message</field><field name="res_model">odx.whatsapp.compose</field><field name="view_mode">form</field><field name="target">new</field></record>
 </odoo>
