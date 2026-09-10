@@ -25,6 +25,8 @@
                         <group>
                             <field name="online_order"/>
                             <field name="crm_sale"/>
+                            <field name="other_state_sale"
+                                   invisible="not online_order and not crm_sale"/>
                         </group>
                     </group>
                 </xpath>
@@ -44,6 +46,11 @@
                         name="walking_sales"
                         string="Walking Customer"
                         domain="[('online_order', '=', False), ('crm_sale', '=', False)]"/>
+                    <separator/>
+                    <filter name="kerala_sales" string="Kerala"
+                            domain="[('other_state_sale', '=', False)]"/>
+                    <filter name="out_of_state_sales" string="Out of State"
+                            domain="[('other_state_sale', '=', True)]"/>
                 </xpath>
             </field>
         </record>
