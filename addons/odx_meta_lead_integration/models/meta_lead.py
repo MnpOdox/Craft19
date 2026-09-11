@@ -663,6 +663,13 @@ class MetaForm(models.Model):
             params=params,
         )
         for item in reversed(payload.get("data", [])):
+            lead_ref = str(item.get("id") or "")
+            if lead_ref and self.env["crm.lead"].sudo().search_count([
+                ("meta_lead_id", "=", lead_ref),
+            ]):
+                # Reconciliation is expected to see recent submissions again.
+                # Existing CRM leads need no additional audit row every 15 minutes.
+                continue
             event = self.env["odx.meta.import.event"].sudo().create({
                 "account_id": self.account_id.id, "form_id": self.id, "meta_lead_ref": item.get("id"),
                 "route_id": self._find_or_create_ad_route(item).id,
@@ -814,6 +821,20 @@ class MetaImportEvent(models.Model):
     next_retry_at = fields.Datetime(index=True)
     processed_at = fields.Datetime(readonly=True)
     lead_id = fields.Many2one("crm.lead", readonly=True, ondelete="set null")
+
+    @api.model
+    def _cron_cleanup_duplicate_events(self):
+        """Retain duplicate-delivery diagnostics for two days only."""
+        cutoff = fields.Datetime.now() - timedelta(days=2)
+        stale = self.sudo().search([
+            ("state", "=", "duplicate"),
+            ("create_date", "<", cutoff),
+        ])
+        count = len(stale)
+        if stale:
+            stale.unlink()
+            _logger.info("Deleted %s Meta duplicate import events older than two days", count)
+        return count
 
     @api.model
     def _discover_unmapped_forms(self):

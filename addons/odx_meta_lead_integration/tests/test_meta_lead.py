@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from unittest.mock import patch
 
 from odoo import fields
@@ -234,3 +235,28 @@ class TestMetaLead(TransactionCase):
         self.assertEqual(routes.configuration_state, "needs_configuration")
         self.assertTrue(self.account.last_ad_sync_at)
         self.assertEqual(request.call_args.args[2], "act_test/ads")
+
+    def test_reconcile_does_not_log_existing_lead_as_duplicate(self):
+        self.form._import_payload({"id": "already-imported", "field_data": []})
+        before = self.env["odx.meta.import.event"].search_count([])
+        with patch.object(type(self.form), "_graph_request", return_value={
+            "data": [{"id": "already-imported", "field_data": []}],
+        }):
+            self.form._reconcile()
+        self.assertEqual(self.env["odx.meta.import.event"].search_count([]), before)
+
+    def test_duplicate_event_cleanup_keeps_two_days_and_non_duplicates(self):
+        old_duplicate, recent_duplicate, old_done = self.env["odx.meta.import.event"].create([
+            {"account_id": self.account.id, "event_type": "webhook", "state": "duplicate"},
+            {"account_id": self.account.id, "event_type": "webhook", "state": "duplicate"},
+            {"account_id": self.account.id, "event_type": "webhook", "state": "done"},
+        ])
+        old_date = fields.Datetime.now() - timedelta(days=3)
+        self.env.cr.execute(
+            "UPDATE odx_meta_import_event SET create_date = %s WHERE id IN %s",
+            [old_date, (old_duplicate.id, old_done.id)],
+        )
+        self.env["odx.meta.import.event"]._cron_cleanup_duplicate_events()
+        self.assertFalse(old_duplicate.exists())
+        self.assertTrue(recent_duplicate.exists())
+        self.assertTrue(old_done.exists())
