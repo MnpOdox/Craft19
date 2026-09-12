@@ -360,10 +360,41 @@ class TestWhatsApp(TransactionCase):
             ["Won", "Closed"],
         )
 
-    def test_customer_and_salesperson_workflows_are_mutually_exclusive(self):
-        form = self._meta_form_with_salesperson_notification("exclusive")
-        with self.assertRaises(ValidationError):
-            form.whatsapp_auto_send_enabled = True
+    def test_customer_and_salesperson_workflows_can_run_together(self):
+        form = self._meta_form_with_salesperson_notification("combined")
+        customer_template = self.env["odx.whatsapp.template"].create({
+            "account_id": self.account.id,
+            "meta_template_id": "combined-customer-template",
+            "name": "combined_customer_welcome",
+            "language": "en_US",
+            "status": "approved",
+            "category": "marketing",
+            "components_json": json.dumps([{
+                "type": "BODY", "text": "Hello {{1}}, thank you for your enquiry.",
+            }]),
+        })
+        form.whatsapp_auto_account_id = self.account
+        self.env["odx.meta.whatsapp.followup.step"].create({
+            "form_id": form.id,
+            "sequence": 10,
+            "template_id": customer_template.id,
+            "delay_hours": 0,
+            "template_parameters": "{{contact_name}}",
+        })
+        form.whatsapp_auto_send_enabled = True
+
+        with patch.object(type(self.account), "_api", return_value={
+            "messages": [{"id": "wamid.combined"}],
+        }) as api_call:
+            lead = form._import_payload(self._salesperson_notification_payload("combined-lead"))
+
+        self.assertEqual(api_call.call_count, 2)
+        self.assertEqual(len(lead.whatsapp_salesperson_notification_ids), 1)
+        conversation = self.env["odx.whatsapp.conversation"].search([
+            ("lead_id", "=", lead.id),
+        ])
+        self.assertEqual(len(conversation), 1)
+        self.assertEqual(len(conversation.message_ids), 1)
 
     def test_meta_form_sends_configured_template_once(self):
         form = self._meta_form_with_auto_template()

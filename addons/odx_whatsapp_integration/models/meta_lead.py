@@ -97,7 +97,10 @@ class MetaForm(models.Model):
     whatsapp_salesperson_notify_enabled = fields.Boolean(
         string="Notify Assigned Salesperson on WhatsApp",
         groups="odx_whatsapp_integration.group_whatsapp_manager",
-        help="Send this Meta lead to the assigned salesperson's personal WhatsApp instead of messaging the customer.",
+        help=(
+            "Send this Meta lead to the assigned salesperson's personal WhatsApp. "
+            "This can be used together with the customer follow-up automation."
+        ),
     )
     whatsapp_salesperson_account_id = fields.Many2one(
         "odx.whatsapp.account", string="Notification Business Number",
@@ -178,16 +181,6 @@ class MetaForm(models.Model):
             if step.template_id.account_id != self.whatsapp_auto_account_id:
                 step.template_id = False
 
-    @api.onchange("whatsapp_salesperson_notify_enabled")
-    def _onchange_whatsapp_salesperson_notify_enabled(self):
-        if self.whatsapp_salesperson_notify_enabled:
-            self.whatsapp_auto_send_enabled = False
-
-    @api.onchange("whatsapp_auto_send_enabled")
-    def _onchange_whatsapp_auto_send_enabled(self):
-        if self.whatsapp_auto_send_enabled:
-            self.whatsapp_salesperson_notify_enabled = False
-
     @api.onchange("whatsapp_salesperson_account_id")
     def _onchange_whatsapp_salesperson_account_id(self):
         if self.whatsapp_salesperson_template_id.account_id != self.whatsapp_salesperson_account_id:
@@ -210,10 +203,6 @@ class MetaForm(models.Model):
     )
     def _check_whatsapp_workflow(self):
         for form in self:
-            if form.whatsapp_auto_send_enabled and form.whatsapp_salesperson_notify_enabled:
-                raise ValidationError(_(
-                    "Choose either customer follow-up automation or salesperson WhatsApp notification, not both."
-                ))
             if not form.whatsapp_salesperson_notify_enabled:
                 continue
             account = form.whatsapp_salesperson_account_id
@@ -348,6 +337,6 @@ class MetaForm(models.Model):
         if lead and not existed:
             if self.whatsapp_salesperson_notify_enabled:
                 self._send_salesperson_notification(lead)
-            elif self.whatsapp_auto_send_enabled:
+            if self.whatsapp_auto_send_enabled:
                 self._start_whatsapp_followup_automation(lead)
         return lead

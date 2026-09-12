@@ -153,7 +153,7 @@
             <xpath expr="//field[@name='campaign_id']/.." position="after">
                 <group string="WhatsApp Workflow" groups="odx_whatsapp_integration.group_whatsapp_manager">
                     <div colspan="2" class="alert alert-info" role="alert">
-                        Choose one workflow per Meta form. Salesperson notification sends lead details to the assigned user's Phone and does not message the customer. Customer follow-up keeps the existing customer-facing sequence.
+                        These workflows are independent. Enable either one or both: notify the assigned salesperson on their WhatsApp and/or send the configured follow-up sequence to the customer.
                     </div>
                     <group string="Notify Assigned Salesperson">
                         <field name="whatsapp_salesperson_notify_enabled"/>
